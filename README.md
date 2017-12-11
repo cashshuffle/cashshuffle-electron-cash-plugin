@@ -39,22 +39,22 @@ Replace this text with
 
 ![Server settings](/images/shuffle_tab.png)
 
-## Making shuffle
+## Making a shuffle
 
-1. Form `Shuffle input address` choose coin which you want to shuffle. The list of coins formed from utxo's of your wallet.
+1. Use `Shuffle input address` to choose coin which you want to shuffle. This list of coins is formed from  the UTXO's of your wallet.
 
-2. From `Shuffle change address` choose the address for the change. You can leave default setting if you don't want to get any change back.
+2. From `Shuffle change address` choose the address for your change. You can leave this as the default setting if you don't want to get any change back.
 
-3. From `Shuffle output address` choose the address for shuffled output
+3. From `Shuffle output address` choose the address for the shuffled output.
 
-4. In the amount block choose the amount of coins for shuffling.
+4. In the amount block, choose the amount of coins for shuffling.
 
-5. Fee is fixed and unchanged  
+5. Fee is fixed and unchanged.  
 
-6. If amount of coins in input grater then sum of shuffling amount fee then `Shuffle` button will become enabled
+6. If the amount of coins in input is greater than the sum of the shuffling amount fee, then `Shuffle` button will become enabled
 
-7. Pressing the `Shuffle` will start shuffling process. After 5 players registered on server shuffling process will starts.
+7. Pressing `Shuffle` will start the shuffling process. After 5 participants registered on the server, the shuffling process will start.
 
-8. If all goes good you will see the outputs and transaction dialog window in the end. If something goes wrong you will see the errors in output.
+8. If all goes well, you will see the outputs and a transaction dialog window. If something goes wrong you will see the errors in the output.
 
-9. In this version of protocol one of the players should press `broadcast` on transaction dialog window.    
+9. In this version of protocol, one of the participants should press `broadcast` on the transaction dialog window.    
