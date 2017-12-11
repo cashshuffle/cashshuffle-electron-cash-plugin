@@ -54,7 +54,7 @@ class Commutator(threading.Thread):
             bare_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             # bare_socket.settimeout(self.timeout)
             if self.ssl:
-                self.socket = ssl.wrap_socket(bare_socket, ssl_version=ssl.PROTOCOL_TLSv1_2, ciphers="ADH-AES256-SHA")
+                self.socket = ssl.wrap_socket(bare_socket, ssl_version=ssl.PROTOCOL_TLSv1_2, ciphers="ECDHE-RSA-AES128-GCM-SHA256")
             else:
                 self.socket = bare_socket
             # self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
