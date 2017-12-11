@@ -13,7 +13,10 @@ cd ~/ && wget https://electroncash.org/downloads/3.0/win-linux/ElectronCash-3.0.
 Otherwise, use the following instructions:
 
 1. Place the `shuffle` folder `cashshuffle-electron-cash-plugin-master/shuffle` into the Electron Cash plugins folder `Electron Cash-3.0/plugins`
-2. Open the `setup.py` file `Electron Cash-3.0/setup.py` and find the line that contains the text `'electroncash_plugins.virtualkeyboard'`. Replace this text with `'electroncash_plugins.virtualkeyboard', 'electroncash_plugins.shuffle',`
+2. Open the `setup.py` file `Electron Cash-3.0/setup.py` and find the line that contains the text `'electroncash_plugins.virtualkeyboard'`. Replace this text with
+
+```'electroncash_plugins.virtualkeyboard', 'electroncash_plugins.shuffle',```
+
 3. Change directories into Electron Cash, and re-install `sudo python3 setup.py install`
 
 ## Getting started
