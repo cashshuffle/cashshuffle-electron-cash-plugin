@@ -279,7 +279,7 @@ class Plugin(BasePlugin):
         server_e = QLineEdit()
         server_ssl_e = QCheckBox()
         server_e.setText(self.server)
-        server_ssl_e.setChecked(self.config.get('coinshufflessl'))
+        server_ssl_e.setChecked(self.config.get('coinshufflessl',False))
         server_ssl_e.stateChanged.connect(lambda: self.config.set_key('coinshufflessl', server_ssl_e.isChecked()))
         grid.addWidget(server_e, 0, 1)
         grid.addWidget(server_ssl_e, 1, 1)
