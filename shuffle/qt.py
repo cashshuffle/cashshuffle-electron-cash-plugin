@@ -64,8 +64,7 @@ class Plugin(BasePlugin):
     def __init__(self, parent, config, name):
         BasePlugin.__init__(self, parent, config, name)
         self.server = self.config.get('coinshuffleserver', '')
-        self.server_ssl = self.config.get('coinshufflessl')
-        print(self.server_ssl)
+        self.server_ssl = self.config.get('coinshufflessl', False)
         self.window = None
         self.tab = None
         # will try to add parent functionality here
