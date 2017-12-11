@@ -21,7 +21,9 @@ Replace this text with
 
 ```'electroncash_plugins.virtualkeyboard', 'electroncash_plugins.shuffle',```
 
-3. Change directories into Electron Cash, and re-install `sudo python3 setup.py install`
+3. `cd` into your Electron Cash directory, and re-install
+
+```sudo python3 setup.py install```
 
 ## Getting started
 
