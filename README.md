@@ -53,7 +53,7 @@ Replace this text with
 
 6. If the amount of coins in input is greater than the sum of the shuffling amount fee, then the `Shuffle` button will become enabled
 
-7. Pressing `Shuffle` will start the shuffling process. After 5 participants registered on the server, the shuffling process will start.
+7. Pressing `Shuffle` will start the shuffling process. After 5 participants registered on the server, the shuffling process will begin.
 
 8. If all goes well, you will see the outputs and a transaction dialog window. If something goes wrong you will see the errors in the output.
 
