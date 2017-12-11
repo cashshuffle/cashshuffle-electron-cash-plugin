@@ -51,7 +51,7 @@ Replace this text with
 
 5. Fee is fixed and unchanged.  
 
-6. If the amount of coins in input is greater than the sum of the shuffling amount fee, then `Shuffle` button will become enabled
+6. If the amount of coins in input is greater than the sum of the shuffling amount fee, then the `Shuffle` button will become enabled
 
 7. Pressing `Shuffle` will start the shuffling process. After 5 participants registered on the server, the shuffling process will start.
 
