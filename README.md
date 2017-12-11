@@ -1,6 +1,6 @@
-# shuffle
+# Shuffle
 
-This plugin for electron-cash BCH wallet. It allows user to make a coinjoin shuffled transaction.
+This is a plugin for the [Electron Cash](https://electroncash.org/) BCH wallet. It allows users to make shuffled transactions using coinjoin.
 
 ## Installation
 1. place the `shuffle` folder to electron-cash `/plugins` folder
