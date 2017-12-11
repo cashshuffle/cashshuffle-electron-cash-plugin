@@ -4,19 +4,18 @@ CashShuffle is a plugin for the [Electron Cash](https://electroncash.org/) BCH w
 
 ## Installation
 
-Ubuntu users can install using the following command. This command downloads the latest version of Electron Cash and CashShuffle, places CashShuffle in the Electron Cash plugin folder, and re-installs Electron Cash.
+Ubuntu users can install using the following command. This command will install the latest version of Electron Cash with CashShuffle in your home directory.
 
 ```
 cd ~/ && wget https://electroncash.org/downloads/3.0/win-linux/ElectronCash-3.0.tar.gz && tar -xvzf ElectronCash-3.0.tar.gz && rm -rf ElectronCash-3.0.tar.gz && wget https://github.com/cashshuffle/cashshuffle-electron-cash-plugin/archive/master.zip && unzip master.zip && rm -rf master.zip && mv cashshuffle-electron-cash-plugin-master/shuffle 'Electron Cash-3.0/plugins' && rm -rf cashshuffle-electron-cash-plugin-master && sed -i "s/'electroncash_plugins.virtualkeyboard',/'electroncash_plugins.virtualkeyboard', 'electroncash_plugins.shuffle',/" 'Electron Cash-3.0/setup.py' && cd 'Electron Cash-3.0' && sudo python3 setup.py install
 ```
 
-1. place the `shuffle` folder to electron-cash `/plugins` folder
-2. add the link to plugin to electron-cash setup.py with adding `'electroncash_plugins.shuffle'` to setup packages list.
-3. re-install electron-cahs
+Otherwise, use the following instructions:
 
-```
-sudo python3 setup.py install
-```
+1. Place the `shuffle` folder `cashshuffle-electron-cash-plugin-master/shuffle` into the Electron Cash plugins folder `Electron Cash-3.0/plugins`
+2. Open the `setup.py` file `Electron Cash-3.0/setup.py` and find the line that contains the text `'electroncash_plugins.virtualkeyboard'`. Replace this text with `'electroncash_plugins.virtualkeyboard', 'electroncash_plugins.shuffle',`
+3. Change directories into Electron Cash, and re-install `sudo python3 setup.py install`
+
 ## Getting started
 
 1. Enable plugin from 'tools/plugins' menu
