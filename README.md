@@ -27,7 +27,7 @@ Replace this text with
 
 ## Getting started
 
-1. Enable plugin from 'tools/plugins' menu
+1. Enable the plugin by going to `Tools -> Plugins`
 
 ![Settings](/images/settings.png)
 
