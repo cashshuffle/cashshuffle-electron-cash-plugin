@@ -43,7 +43,7 @@ Replace this text with
 
 1. Use `Shuffle input address` to choose coin which you want to shuffle. This list of coins is formed from  the UTXO's of your wallet.
 
-2. From `Shuffle change address` choose the address for your change. You can leave this as the default setting if you want to use input address as chang address.
+2. From `Shuffle change address` choose the address for your change. You can leave this as the default setting if you want to use input address as change address.
 
 3. From `Shuffle output address` choose the address for the shuffled output.
 
