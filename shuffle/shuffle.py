@@ -146,7 +146,7 @@ class ChangeAdressWidget(QComboBox):
 
     def setItems(self, wallet):
         self.ChangesArray = wallet.get_change_addresses()
-        self.addItem('Not use change address')
+        self.addItem('Use input as change address')
         for addr in self.ChangesArray:
             self.addItem(addr)
 

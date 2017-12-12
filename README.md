@@ -28,7 +28,7 @@ sudo python3 setup.py install
 
 1. Form `Shuffle input address` choose coin which you want to shuffle. The list of coins formed from utxo's of your wallet.
 
-2. From `Shuffle change address` choose the address for the change. You can leave default setting if you don't want to get any change back.
+2. From `Shuffle change address` choose the address for the change. You can leave default setting if you want to get back change to your input address.
 
 3. From `Shuffle output address` choose the address for shuffled output
 

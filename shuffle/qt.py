@@ -177,7 +177,11 @@ class Plugin(BasePlugin):
             self.coinshuffle_text_output.setText('Wrong server connection string')
             return
         input_address = self.coinshuffle_inputs.get_input_address()
-        change_address = self.coinshuffle_changes.get_change_address()
+        possible_change_address = self.coinshuffle_changes.get_change_address()
+        if possible_change_address:
+            change_address = possible_change_address
+        else:
+            change_address = input_address
         output_address = self.coinshuffle_outputs.get_output_address()
         #disable inputs
         self.coinshuffle_start_button.setEnabled(False)
@@ -212,6 +216,8 @@ class Plugin(BasePlugin):
 
     def create_shuffle_tab(self):
         self.coinshuffle_fee_constant = 1000
+        # This is for debug
+        # self.coinshuffle_fee_constant = 100
 
         from .shuffle import InputAdressWidget
         from .shuffle import ChangeAdressWidget
@@ -220,6 +226,8 @@ class Plugin(BasePlugin):
         from .shuffle import AmountSelect
 
         self.coinshuffle_amounts = [1e7, 1e6]
+        # Use this in test mode
+        # self.coinshuffle_amounts = [1e4, 1e3]
         self.shuffle_grid = grid = QGridLayout()
         grid.setSpacing(8)
         grid.setColumnStretch(3, 1)
