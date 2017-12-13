@@ -31,30 +31,47 @@ Replace this text with
 
 ![Settings](/images/settings.png)
 
-2. Press `Settings` and enter the server connection string
+  The shuffle tab will appear
 
-![Server settings](/images/server_settings.png)
-
-3. Close the settings dialog window. The shuffle tab will appear
+2. Close the settings dialog window. The shuffle tab will appear
 
 ![Server settings](/images/shuffle_tab.png)
 
 ## Making a shuffle
 
-1. Use `Shuffle input address` to choose coin which you want to shuffle. This list of coins is formed from  the UTXO's of your wallet.
+1. Choose server from servers list
 
-2. From `Shuffle change address` choose the address for your change. You can leave this as the default setting if you want to use input address as change address.
+2. Check `Use SSL` if you want to use SSL
 
-3. From `Shuffle output address` choose the address for the shuffled output.
+3. Use `Shuffle input address` to choose coin which you want to shuffle. This list of coins is formed from  the UTXO's of your wallet.
 
-4. In the amount block, choose the amount of coins for shuffling.
+4. From `Shuffle change address` choose the address for your change. You can leave this as the default setting if you want to use input address as change address.
 
-5. Fee is fixed and unchanged.
+5. From `Shuffle output address` choose the address for the shuffled output.
 
-6. If the amount of coins in input is greater than the sum of the shuffling amount fee, then the `Shuffle` button will become enabled
+6. In the amount block, choose the amount of coins for shuffling.
 
-7. Pressing `Shuffle` will start the shuffling process. After 5 participants registered on the server, the shuffling process will begin.
+7. Fee is fixed and unchanged.
 
-8. If all goes well, you will see the outputs and a transaction dialog window. If something goes wrong you will see the errors in the output.
+8. If the amount of coins in input is greater than the sum of the shuffling amount fee, then the `Shuffle` button will become enabled
 
-9. In this version of protocol, one of the participants should press `broadcast` on the transaction dialog window.
+9. Pressing `Shuffle` will start the shuffling process. After 5 participants registered on the server, the shuffling process will begin.
+
+10. If all goes well, you will see the outputs and a transaction dialog window. If something goes wrong you will see the errors in the output.
+
+11. In this version of protocol, one of the participants should press `broadcast` on the transaction dialog window.
+
+## Configuring servers servers list
+
+List of servers placed in file `shuffle/servers.json`
+
+If you want to add your server to the list follow the next structure:
+
+```json
+{
+   "your.server.here":
+   {
+     "port" : port number
+   }
+}
+```
