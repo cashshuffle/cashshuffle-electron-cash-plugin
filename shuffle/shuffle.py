@@ -32,6 +32,9 @@ from .client import protocolThread
 # from electroncash_plugins.coinshuffle.client import protocolThread
 from electroncash.bitcoin import regenerate_key
 
+import json
+import os
+
 class AmountSelect(QGroupBox):
 
     def __init__(self, values, parent = None, decimal_point = None ):
@@ -204,3 +207,30 @@ class ShuffleList(MyTreeWidget):
             menu.addAction(_("Details"), lambda: self.parent.show_transaction(tx))
 
         menu.exec_(self.viewport().mapToGlobal(position))
+
+class ServersList(QComboBox):
+
+    def __init__(self, parent = None):
+        QComboBox.__init__(self, parent)
+        self.servers_path ='servers.json'
+        self.servers_list = None
+        self.load_servers_list()
+
+    def load_servers_list(self):
+        try:
+
+            with open(os.path.join(os.path.dirname(__file__),self.servers_path), 'r') as f:
+                r = json.loads(f.read())
+        except:
+            r = {}
+        self.servers_list = r
+
+    def setItems(self):
+        for server in self.servers_list:
+            self.addItem(server)
+
+    def get_current_server(self):
+        current_server =  self.currentText()
+        server = self.servers_list.get(current_server)
+        server['server' ] = current_server
+        return server
