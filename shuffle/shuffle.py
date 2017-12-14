@@ -227,10 +227,12 @@ class ServersList(QComboBox):
 
     def setItems(self):
         for server in self.servers_list:
-            self.addItem(server)
+            ssl = self.servers_list[server].get('ssl')
+            item = server + ('   [ssl enabled]' if ssl else '   [ssl disabled]')
+            self.addItem(item)
 
     def get_current_server(self):
-        current_server =  self.currentText()
+        current_server =  self.currentText().split(' ')[0]
         server = self.servers_list.get(current_server)
         server['server' ] = current_server
         return server

@@ -184,7 +184,8 @@ class Plugin(BasePlugin):
             server = server_params['server']
             port = server_params['port']
             # ssl = self.window.config.get('coinshufflessl')
-            ssl = self.coinshuffle_use_ssl.isChecked()
+            # ssl = self.coinshuffle_use_ssl.isChecked()
+            ssl = server_params.get('ssl', False)
         except:
             self.coinshuffle_text_output.setText('Wrong server connection string')
             return
@@ -243,7 +244,7 @@ class Plugin(BasePlugin):
         grid.setColumnStretch(3, 1)
 
         self.coinshuffle_servers = ServersList()
-        self.coinshuffle_use_ssl = QCheckBox()
+        # self.coinshuffle_use_ssl = QCheckBox()
         self.coinshuffle_inputs = InputAdressWidget(decimal_point = self.window.get_decimal_point)
         self.coinshuffle_changes = ChangeAdressWidget()
         self.coinshuffle_outputs = OutputAdressWidget()
@@ -258,14 +259,14 @@ class Plugin(BasePlugin):
         self.coinshuffle_start_button.setEnabled(False)
 
         grid.addWidget(QLabel(_('Shuffle server')), 1, 0)
-        grid.addWidget(QLabel(_('Use SSL')), 2, 0)
+        # grid.addWidget(QLabel(_('Use SSL')), 2, 0)
         grid.addWidget(QLabel(_('Shuffle input address')), 3, 0)
         grid.addWidget(QLabel(_('Shuffle change address')), 4, 0)
         grid.addWidget(QLabel(_('Shuffle output address')), 5, 0)
         grid.addWidget(QLabel(_('Amount')), 6, 0)
         grid.addWidget(QLabel(_('Fee')), 7, 0)
         grid.addWidget(self.coinshuffle_servers, 1, 1,1,-1)
-        grid.addWidget(self.coinshuffle_use_ssl, 2, 1)
+        # grid.addWidget(self.coinshuffle_use_ssl, 2, 1)
         grid.addWidget(self.coinshuffle_inputs,3,1,1,-1)
         grid.addWidget(self.coinshuffle_changes,4,1,1,-1)
         grid.addWidget(self.coinshuffle_outputs,5,1,1,-1)

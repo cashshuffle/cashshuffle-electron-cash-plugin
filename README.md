@@ -41,8 +41,6 @@ Replace this text with
 
 1. Choose server from servers list
 
-2. Check `Use SSL` if you want to use SSL
-
 3. Use `Shuffle input address` to choose coin which you want to shuffle. This list of coins is formed from  the UTXO's of your wallet.
 
 4. From `Shuffle change address` choose the address for your change. You can leave this as the default setting if you want to use input address as change address.
@@ -71,7 +69,9 @@ If you want to add your server to the list follow the next structure:
 {
    "your.server.here":
    {
-     "port" : port number
+     "port" : 31415,
+     "ssl": true	
    }
 }
-```
+
+`"port"` value should be integer value of your server port and `ssl` should be boolean value of ssl support.
