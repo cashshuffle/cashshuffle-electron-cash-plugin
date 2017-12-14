@@ -73,5 +73,6 @@ If you want to add your server to the list follow the next structure:
      "ssl": true	
    }
 }
+```
 
-`"port"` value should be integer value of your server port and `ssl` should be boolean value of ssl support.
+`port` value should be integer value of your server port and `ssl` should be boolean value of ssl support.
