@@ -67,7 +67,7 @@ class Commutator(threading.Thread):
             self.logger.put(str(e))
 
     def _send(self, msg):
-        print(msg)
+        # print(msg)
         message = msg + self.frame
         self.socket.sendall(message)
 
