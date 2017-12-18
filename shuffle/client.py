@@ -64,27 +64,34 @@ class protocolThread(threading.Thread):
         self.number = self.messages.packets.packet[-1].packet.number
         if self.session != '':
              self.logger.send("Player "  + str(self.number)+" get session number.\n")
+
+        # Wait for announcement phase
+        while True:
+            req = self.outcome.recv()
+            self.messages.packets.ParseFromString(req)
+            phase = self.messages.get_phase()
+            number = self.messages.get_number()
+            if phase == 1:
+                break
+            else:
+                self.logger.send("Player " + str(number) + " joined the pool!")
+
         # # Here is when announcment should begin
-        req = self.outcome.recv()
-        self.messages.packets.ParseFromString(req)
-        phase = self.messages.get_phase()
-        number = self.messages.get_number()
-        if phase == 1 and number > 0:
-            self.logger.send("Player " + str(self.number) + " is about to share verification key with " + str(number) +" players.\n")
-            self.number_of_players = number
-            #Share the keys
-            self.messages.clear_packets()
-            self.messages.packets.packet.add()
-            self.messages.packets.packet[-1].packet.from_key.key = self.vk
-            self.messages.packets.packet[-1].packet.session = self.session
-            self.messages.packets.packet[-1].packet.number = self.number
-            shared_key_message = self.messages.packets.SerializeToString()
-            self.income.send(shared_key_message)
-            messages = b''
-            for i in range(number):
-                messages += self.outcome.recv()
-            self.messages.packets.ParseFromString(messages)
-            self.players = {packet.packet.number:str(packet.packet.from_key.key) for packet in self.messages.packets.packet}
+        self.logger.send("Player " + str(self.number) + " is about to share verification key with " + str(number) +" players.\n")
+        self.number_of_players = number
+        #Share the keys
+        self.messages.clear_packets()
+        self.messages.packets.packet.add()
+        self.messages.packets.packet[-1].packet.from_key.key = self.vk
+        self.messages.packets.packet[-1].packet.session = self.session
+        self.messages.packets.packet[-1].packet.number = self.number
+        shared_key_message = self.messages.packets.SerializeToString()
+        self.income.send(shared_key_message)
+        messages = b''
+        for i in range(number):
+            messages += self.outcome.recv()
+        self.messages.packets.ParseFromString(messages)
+        self.players = {packet.packet.number:str(packet.packet.from_key.key) for packet in self.messages.packets.packet}
         if self.players:
             self.logger.send('Player ' +str(self.number)+ " get " + str(len(self.players))+".\n")
         #
