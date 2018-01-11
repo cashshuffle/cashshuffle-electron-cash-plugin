@@ -31,6 +31,7 @@ from electroncash.i18n import _
 from .client import protocolThread
 # from electroncash_plugins.coinshuffle.client import protocolThread
 from electroncash.bitcoin import regenerate_key
+from electroncash.address import Address
 
 import json
 import os
@@ -96,7 +97,7 @@ class InputAdressWidget(QComboBox):
     def setItmes(self, wallet):
         self.inputsArray = wallet.get_utxos()
         for utxo in self.inputsArray:
-            self.addItem(utxo.get('address')+': '+ self.amounted_value(utxo['value']))
+            self.addItem(utxo.get('address').to_string(Address.FMT_LEGACY)+': '+ self.amounted_value(utxo['value']))
 
     def get_input_address(self):
         return self.inputsArray[self.currentIndex()]['address']
@@ -120,7 +121,7 @@ class OutputAdressWidget(QComboBox):
     def setItems(self, wallet):
         self.outputsArray = wallet.get_unused_addresses()
         for address in self.outputsArray:
-            self.addItem(address)
+            self.addItem(address.to_string(Address.FMT_LEGACY))
 
     def get_output_address(self):
         return self.outputsArray[self.currentIndex()]
@@ -151,7 +152,7 @@ class ChangeAdressWidget(QComboBox):
         self.ChangesArray = wallet.get_change_addresses()
         self.addItem('Use input as change address')
         for addr in self.ChangesArray:
-            self.addItem(addr)
+            self.addItem(addr.to_string(Address.FMT_LEGACY))
 
     def get_change_address(self):
         i = self.currentIndex()

@@ -1,8 +1,9 @@
 from electroncash.bitcoin import (
-    bfh,  bh2u, MySigningKey, MyVerifyingKey ,SECP256k1, is_address,
+    bfh,  bh2u, MySigningKey, MyVerifyingKey ,SECP256k1,
     generator_secp256k1, point_to_ser, public_key_to_p2pkh, Hash,
     pubkey_from_signature, msg_magic, TYPE_ADDRESS)
 from electroncash.transaction import Transaction, int_to_hex
+from electroncash.address import Address
 import ecdsa
 import hashlib
 
@@ -54,7 +55,7 @@ class Coin(object):
         tx_inputs = [coins[vk] for vk in sorted(coins)]
         tx_outputs = [(TYPE_ADDRESS, output, int(amount)) for output in outputs ]
         tx = Transaction.from_io(tx_inputs, tx_outputs)
-        tx_changes = [(TYPE_ADDRESS, changes[vk], int(coins[vk]['value'] - amount - fee))  for vk in changes if is_address(changes[vk])]
+        tx_changes = [(TYPE_ADDRESS, changes[vk], int(coins[vk]['value'] - amount - fee))  for vk in changes if Address.is_valid(changes[vk])]
         tx.add_outputs(tx_changes)
         return tx
 
@@ -97,7 +98,7 @@ class Coin(object):
                     if vk == pubkey:
                         return True
                 except:
-                    continue    
+                    continue
         else:
             return False
 
