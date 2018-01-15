@@ -45,7 +45,7 @@ class Coin(object):
         coins = {vk : self.get_first_sufficient_utxo(inputs[vk], amount) for vk in inputs}
         for vk in coins:
             coins[vk]['type'] = 'p2pkh'
-            coins[vk]['address'] = self.address(vk)
+            coins[vk]['address'] = Address.from_string(self.address(vk))
             coins[vk]['pubkeys'] = [vk]
             coins[vk]['x_pubkeys'] = [vk]
             coins[vk]['prevout_hash'] = coins[vk]['tx_hash']
@@ -53,9 +53,9 @@ class Coin(object):
             coins[vk]['signatures'] = [None]
             coins[vk]['num_sig'] = 1
         tx_inputs = [coins[vk] for vk in sorted(coins)]
-        tx_outputs = [(TYPE_ADDRESS, output, int(amount)) for output in outputs ]
+        tx_outputs = [(TYPE_ADDRESS, Address.from_string(output), int(amount)) for output in outputs ]
         tx = Transaction.from_io(tx_inputs, tx_outputs)
-        tx_changes = [(TYPE_ADDRESS, changes[vk], int(coins[vk]['value'] - amount - fee))  for vk in changes if Address.is_valid(changes[vk])]
+        tx_changes = [(TYPE_ADDRESS, Address.from_string(changes[vk]), int(coins[vk]['value'] - amount - fee))  for vk in changes if Address.is_valid(changes[vk])]
         tx.add_outputs(tx_changes)
         return tx
 
