@@ -2,6 +2,8 @@
 
 CashShuffle is a plugin for the [Electron Cash](https://electroncash.org/) BCH wallet. It allows users to make shuffled transactions using [CoinJoin](https://en.wikipedia.org/wiki/CoinJoin).
 
+WARNING: THIS IS PRE-RELEASE SOFTWARE. This has been made available to provide feedback and review!
+
 ## Installation
 
 Ubuntu users can install using the following command. This command will install the latest version of Electron Cash with CashShuffle in your home directory.
