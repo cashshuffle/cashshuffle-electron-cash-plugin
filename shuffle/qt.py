@@ -136,7 +136,13 @@ class Plugin(BasePlugin):
         self.coinshuffle_amount_radio.setEnabled(False)
 
     def process_protocol_messages(self, message):
-        if message[-17:] == "complete protocol":
+        if message.startswith("Error"):
+            self.pThread.join()
+            self.coinshuffle_text_output.setTextColor(QColor('red'))
+            self.coinshuffle_text_output.append(message)
+            self.enable_coinshuffle_settings()
+        elif message[-17:] == "complete protocol":
+            self.pThread.done.set()
             tx = self.pThread.protocol.tx
             if tx:
                 self.window.show_transaction(tx)
@@ -144,6 +150,7 @@ class Plugin(BasePlugin):
             else:
                 print("No tx: " + str(tx.raw))
             self.enable_coinshuffle_settings()
+            self.coinshuffle_cancel_button.setEnabled(False)
             self.coinshuffle_inputs.update(self.window.wallet)
         else:
             header = message[:6]
@@ -194,10 +201,11 @@ class Plugin(BasePlugin):
         if possible_change_address:
             change_address = possible_change_address
         else:
-            change_address = input_address
+            change_address = self.coinshuffle_inputs.get_input_address_as_string()
         output_address = self.coinshuffle_outputs.get_output_address()
         #disable inputs
         self.disable_coinshuffle_settings()
+        self.coinshuffle_cancel_button.setEnabled(True)
         # self.coinshuffle_start_button.setEnabled(False)
         # self.coinshuffle_inputs.setEnabled(False)
         # self.coinshuffle_changes.setEnabled(False)
@@ -210,12 +218,18 @@ class Plugin(BasePlugin):
         logger.logUpdater.connect(lambda x: self.process_protocol_messages(x))
         priv_key = self.window.wallet.export_private_key(input_address, password)
         pub_key = self.window.wallet.get_public_key(input_address)
-        print(priv_key)
         sk = regenerate_key(deserialize_privkey(priv_key)[1])
         self.pThread = protocolThread(server, port, self.window.network, amount, fee, sk, pub_key, output_address, change_address, logger = logger, ssl = ssl)
-        # print('start thread')
         self.pThread.start()
-        # print('thread started')
+
+    def cancel_coinshuffle_protocol(self):
+        if self.pThread.is_alive():
+            self.pThread.join()
+            while self.pThread.is_alive():
+                time.sleep(0.1)
+            self.coinshuffle_cancel_button.setEnabled(False)
+            self.enable_coinshuffle_settings()
+
 
     def check_sufficient_ammount(self):
         coin_amount = self.coinshuffle_inputs.get_input_value()
@@ -257,7 +271,9 @@ class Plugin(BasePlugin):
         self.coinshuffle_amount_radio.button_group.buttonClicked.connect(self.check_sufficient_ammount)
 
         self.coinshuffle_start_button = EnterButton(_("Shuffle"),lambda :self.start_coinshuffle_protocol())
+        self.coinshuffle_cancel_button = EnterButton(_("Cancel"),lambda :self.cancel_coinshuffle_protocol())
         self.coinshuffle_start_button.setEnabled(False)
+        self.coinshuffle_cancel_button.setEnabled(False)
 
         grid.addWidget(QLabel(_('Shuffle server')), 1, 0)
         # grid.addWidget(QLabel(_('Use SSL')), 2, 0)
@@ -274,6 +290,7 @@ class Plugin(BasePlugin):
         grid.addWidget(self.coinshuffle_amount_radio,6,1)
         grid.addWidget(self.coinshuffle_fee ,7, 1)
         grid.addWidget(self.coinshuffle_start_button, 8, 0)
+        grid.addWidget(self.coinshuffle_cancel_button, 8, 1)
         grid.addWidget(self.coinshuffle_text_output,9,0,1,-1)
 
         vbox0 = QVBoxLayout()
@@ -288,35 +305,3 @@ class Plugin(BasePlugin):
 
     def requires_settings(self):
         return False
-
-    # def settings_widget(self, window):
-    #     return EnterButton(_('Settings'), partial(self.settings_dialog, window))
-    #
-    # def settings_dialog(self, window):
-    #     d = WindowModalDialog(window, _("CashShuffle settings"))
-    #     d.setMinimumSize(500, 200)
-    #
-    #     vbox = QVBoxLayout(d)
-    #     vbox.addWidget(QLabel(_('CashShuffle server')))
-    #     grid = QGridLayout()
-    #     vbox.addLayout(grid)
-    #     grid.addWidget(QLabel('server'), 0, 0)
-    #     grid.addWidget(QLabel('use SSL'), 1, 0)
-    #     server_e = QLineEdit()
-    #     server_ssl_e = QCheckBox()
-    #     server_e.setText(self.server)
-    #     server_ssl_e.setChecked(self.config.get('coinshufflessl',False))
-    #     server_ssl_e.stateChanged.connect(lambda: self.config.set_key('coinshufflessl', server_ssl_e.isChecked()))
-    #     grid.addWidget(server_e, 0, 1)
-    #     grid.addWidget(server_ssl_e, 1, 1)
-    #
-    #     vbox.addStretch()
-    #     vbox.addLayout(Buttons(CloseButton(d), OkButton(d)))
-    #
-    #     if not d.exec_():
-    #         return
-    #
-    #     server = str(server_e.text())
-    #     # server_ssl = server_ssl_e.isChecked()
-    #     self.config.set_key('coinshuffleserver', server)
-    #     # self.config.set_key('coinshufflessl', server_ssl)

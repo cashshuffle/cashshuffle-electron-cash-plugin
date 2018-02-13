@@ -1,6 +1,15 @@
 from . import message_pb2 as message_factory
 from random import shuffle
 
+def check_for_length(f):
+
+    def wrapper(self):
+        if len(self.packets.ListFields())>0:
+            return f(self)
+        else:
+            return None
+    return wrapper
+
 class Messages(object):
 
     def __init__(self):
@@ -133,33 +142,43 @@ class Messages(object):
     def encryption_keys_count(self):
         return len([1 for packet in self.packets.packet if len(packet.packet.message.key.key) != 0])
 
+    @check_for_length
     def get_session(self):
         return self.packets.packet[-1].packet.session
 
+    @check_for_length
     def get_number(self):
         return self.packets.packet[-1].packet.number
 
+    @check_for_length
     def get_encryption_key(self):
         return self.packets.packet[-1].packet.message.key.key
 
+    @check_for_length
     def get_address(self):
         return self.packets.packet[-1].packet.message.address.address
 
+    @check_for_length
     def get_from_key(self):
         return self.packets.packet[-1].packet.from_key.key
 
+    @check_for_length
     def get_to_key(self):
         return self.packets.packet[-1].packet.to_key.key
 
+    @check_for_length
     def get_phase(self):
         return self.packets.packet[-1].packet.phase
 
+    @check_for_length
     def get_hash(self):
         return self.packets.packet[-1].packet.message.hash.hash
 
+    @check_for_length
     def get_str(self):
         return self.packets.packet[-1].packet.message.str
 
+    @check_for_length
     def get_signature(self):
         return self.packets.packet[-1].packet.message.signature.signature
 

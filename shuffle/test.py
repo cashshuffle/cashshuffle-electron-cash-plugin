@@ -87,4 +87,4 @@ class Test_protocol(unittest.TestCase):
                     done = True
             if message[:5] == 'Blame':
                 done = True
-        self.assertEqual(completed, players_count)        
+        self.assertEqual(completed, players_count)

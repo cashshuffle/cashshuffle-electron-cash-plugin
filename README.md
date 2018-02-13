@@ -1,6 +1,6 @@
 # Shuffle
 
-CashShuffle is a plugin for the [Electron Cash](https://electroncash.org/) BCH wallet. It allows users to make shuffled transactions using [CoinJoin](https://en.wikipedia.org/wiki/CoinJoin).
+CashShuffle is a plugin for the [Electron Cash](https://electroncash.org/) BCH wallet. The version of [Electron Cash](https://electroncash.org/) should be not less then `3.1.2` .It allows users to make shuffled transactions using [CoinJoin](https://en.wikipedia.org/wiki/CoinJoin).
 
 WARNING: THIS IS PRE-RELEASE SOFTWARE. This has been made available to provide feedback and review!
 
@@ -57,9 +57,11 @@ Replace this text with
 
 9. Pressing `Shuffle` will start the shuffling process. After 5 participants registered on the server, the shuffling process will begin.
 
-10. If all goes well, you will see the outputs and a transaction dialog window. If something goes wrong you will see the errors in the output.
+10. Press `Cancel` if you wish to cancel the protocol evaluation. It can take a few seconds to proceed.
 
-11. In this version of protocol, one of the participants should press `broadcast` on the transaction dialog window.
+11. If all goes well, you will see the outputs and a transaction dialog window. If something goes wrong you will see the errors in the output.
+
+12. In this version of protocol, one of the participants should press `broadcast` on the transaction dialog window.
 
 ## Configuring servers servers list
 
@@ -72,7 +74,7 @@ If you want to add your server to the list follow the next structure:
    "your.server.here":
    {
      "port" : 31415,
-     "ssl": true	
+     "ssl": true
    }
 }
 ```

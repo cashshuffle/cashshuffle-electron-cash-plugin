@@ -5,11 +5,34 @@ import queue
 import time
 import select
 
+class Channel(queue.Queue):
+    """
+    simple Queue wrapper for using recv and send
+    """
+    def __init__(self, switch_timeout = 0.1):
+        queue.Queue.__init__(self)
+        self.switch_timeout = switch_timeout
+
+    def send(self, message):
+        self.put(message,True, self.switch_timeout)
+
+    def recv(self):
+        return self.get()
+
+class ChannelWithPrint(queue.Queue):
+
+    def send(self, message):
+        print(message)
+        self.put(message)
+
+    def recv(self):
+        return self.get()
+
 class Commutator(threading.Thread):
     """
     Class for decoupling of send and recv ops.
     """
-    def __init__(self, income, outcome, logger = None, buffsize = 4096, timeout = 0, switch_timeout = 0.1, ssl = False):
+    def __init__(self, income, outcome, logger = ChannelWithPrint(), buffsize = 4096, timeout = 0, switch_timeout = 0.1, ssl = False):
         super(Commutator, self).__init__()
         self.income = income
         self.outcome = outcome
@@ -65,6 +88,7 @@ class Commutator(threading.Thread):
             self.debug('connected')
         except IOError as e:
             self.logger.put(str(e))
+            raise(e)
 
     def _send(self, msg):
         # print(msg)
@@ -80,25 +104,3 @@ class Commutator(threading.Thread):
         while response[-3:] != self.frame:
             response += self.socket.recv(self.MAX_BLOCK_SIZE)
         return response[:-3]
-
-class Channel(queue.Queue):
-    """
-    simple Queue wrapper for using recv and send
-    """
-    def __init__(self, switch_timeout = 0.1):
-        queue.Queue.__init__(self)
-        self.switch_timeout = switch_timeout
-
-    def send(self, message):
-        self.put(message,True, self.switch_timeout)
-    def recv(self):
-        return self.get(True)
-
-class ChannelWithPrint(queue.Queue):
-
-    def send(self, message):
-        print(message)
-        self.put(message)
-
-    def recv(self):
-        return self.get()

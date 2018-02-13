@@ -102,6 +102,9 @@ class InputAdressWidget(QComboBox):
     def get_input_address(self):
         return self.inputsArray[self.currentIndex()]['address']
 
+    def get_input_address_as_string(self, fmt = Address.FMT_LEGACY):
+        return self.inputsArray[self.currentIndex()]['address'].to_string(fmt)    
+
     def get_input_value(self):
         i = self.currentIndex()
         if i >= 0:
@@ -123,8 +126,8 @@ class OutputAdressWidget(QComboBox):
         for address in self.outputsArray:
             self.addItem(address.to_string(Address.FMT_LEGACY))
 
-    def get_output_address(self):
-        return self.outputsArray[self.currentIndex()]
+    def get_output_address(self, fmt = Address.FMT_LEGACY):
+        return self.outputsArray[self.currentIndex()].to_string(fmt)
 
 class ConsoleLogger(QObject):
     logUpdater  = pyqtSignal(str)
@@ -154,10 +157,10 @@ class ChangeAdressWidget(QComboBox):
         for addr in self.ChangesArray:
             self.addItem(addr.to_string(Address.FMT_LEGACY))
 
-    def get_change_address(self):
+    def get_change_address(self, fmt = Address.FMT_LEGACY):
         i = self.currentIndex()
         if i > 0:
-            return self.ChangesArray[i-1]
+            return self.ChangesArray[i-1].to_string(fmt)
         else:
             return None
 
