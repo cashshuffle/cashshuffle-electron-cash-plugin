@@ -103,7 +103,7 @@ class InputAdressWidget(QComboBox):
         return self.inputsArray[self.currentIndex()]['address']
 
     def get_input_address_as_string(self, fmt = Address.FMT_LEGACY):
-        return self.inputsArray[self.currentIndex()]['address'].to_string(fmt)    
+        return self.inputsArray[self.currentIndex()]['address'].to_string(fmt)
 
     def get_input_value(self):
         i = self.currentIndex()
@@ -129,6 +129,16 @@ class OutputAdressWidget(QComboBox):
     def get_output_address(self, fmt = Address.FMT_LEGACY):
         return self.outputsArray[self.currentIndex()].to_string(fmt)
 
+    def update(self, wallet):
+        current_output = self.get_output_address()
+        currentindex = self.currentIndex()
+        self.clear_addresses()
+        self.setItems(wallet)
+        if current_output in self.outputsArray:
+            self.setCurrentIndex(self.outputsArray.index(current_output))
+        else:
+            self.setCurrentIndex(0)
+
 class ConsoleLogger(QObject):
     logUpdater  = pyqtSignal(str)
 
@@ -153,6 +163,17 @@ class ChangeAdressWidget(QComboBox):
 
     def setItems(self, wallet):
         self.ChangesArray = wallet.get_change_addresses()
+        self.addItem('Use input as change address')
+        for addr in self.ChangesArray:
+            self.addItem(addr.to_string(Address.FMT_LEGACY))
+
+    def update(self, wallet, fresh_only = False):
+        self.clear()
+        changes = wallet.get_change_addresses()
+        if not fresh_only:
+            self.ChangesArray = changes
+        else:
+            self.ChangesArray = [change for change in changes if len(wallet.get_address_history(change)) == 0 ]
         self.addItem('Use input as change address')
         for addr in self.ChangesArray:
             self.addItem(addr.to_string(Address.FMT_LEGACY))

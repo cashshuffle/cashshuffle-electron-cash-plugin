@@ -41,12 +41,10 @@ class Round(object):
         else:
             raise TypeError('Players should be stored in dict object')
         # My verification public key, which is also my identity.
-        # self.__vk = sk.get_public_key(True) # True here means that compression is on
         self.__vk = pubkey
         # decryption key
         if self.__N == len(set(players.values())):
             if self.__vk in players.values():
-                # self.__me = { v : k for k, v in players.iteritems()}[self.__vk]
                 self.__me = { players[player] : player for player in players}[self.__vk]
 
             else:
@@ -78,7 +76,7 @@ class Round(object):
         try:
             val = self.__inchan.recv()
             if val is None:
-                return
+                return None
             else:
                 self.__messages.packets.ParseFromString(val)
         except Exception:
@@ -90,8 +88,7 @@ class Round(object):
             if not self.__coin.verify_signature(sig, msg, player):
                 self.__messages.clear_packets()
                 self.__messages.blame_invalid_signature(self.__players[player])
-                self.__messages.form_last_packet(self.__sk, self.__session, self.__me, self.__vk, None,self.__phase)
-                self.__outchan.send(self.__messages.packets.SerializeToString())
+                self.send_message()
                 self.__logchan.send('Blame: player ' + player + ' message with wrong signature!')
                 raise BlameException('Player ' + player + ' message with wrong signature!')
         # blames = self.__messages.get_blame()
@@ -103,6 +100,11 @@ class Round(object):
         #     self.__logchan.send("Blame on you!")
         if self.__debug:
             self.__logchan.send("Player " + str(self.__me)+"\n"+str(self.__inbox))
+        return True
+
+    def send_message(self, destination = None):
+        self.__messages.form_all_packets(self.__sk, self.__session, self.__me, self.__vk, destination, self.__phase)
+        self.__outchan.send(self.__messages.packets.SerializeToString())
 
     def blame_insufficient_funds(self):
         offenders = list()
@@ -117,8 +119,7 @@ class Round(object):
             self.__phase = "Blame"
             for offender in offenders:
                 self.__messages.blame_insufficient_funds(offender)
-                self.__messages.form_last_packet(self.__sk, self.__session, self.__me, self.__vk, None,self.__phase)
-                self.__outchan.send(self.__messages.packets.SerializeToString())
+                self.send_message()
                 #log the Exception
                 self.__logchan.send('Blame: insufficient funds of player ' + str(list(self.__players.keys())[list(self.__players.values()).index(offender)]))
             raise BlameException('Insufficient funds')
@@ -129,8 +130,7 @@ class Round(object):
         # Broadcast the public key and store it in the set with everyone else's.
         self.__messages.clear_packets()
         self.__messages.add_encryption_key(self.__crypto.export_public_key(), self.__change)
-        self.__messages.form_last_packet(self.__sk, self.__session, self.__me, self.__vk, None , self.__phase)
-        self.__outchan.send(self.__messages.packets.SerializeToString())
+        self.send_message()
 
     # In phase 1, everybody announces their new encryption keys to one another. They also
     # optionally send change addresses to one another. This function reads that information
@@ -146,10 +146,11 @@ class Round(object):
         return encrypted
 
     def process_inbox(self):
+        phase = self.__messages.phases[self.__phase]
         # Announcement
         if self.__phase is 'Announcement':
-            if len(self.__inbox[self.__messages.phases[self.__phase]]) == self.__N:
-                messages = self.__inbox[self.__messages.phases[self.__phase]]
+            if len(self.__inbox[phase]) == self.__N:
+                messages = self.__inbox[phase]
                 for message in messages:
                     self.__messages.packets.ParseFromString(messages[message])
                     from_key = self.__messages.get_from_key()
@@ -159,21 +160,15 @@ class Round(object):
                     self.__logchan.send('Player '+ str(self.__me) + ' recieved all keys for test.')
                     self.__phase = 'Shuffling'
                     self.__logchan.send("Player " + str( self.__me) + " reaches phase 2.")
-                    #
                     self.__messages.clear_packets()
-                    #
                     if self.__me == 1:
                         self.__messages.add_str(self.encrypt_new_address())
-                        # form packet and...
-                        self.__messages.form_all_packets(self.__sk, self.__session, self.__me, self.__vk, self.__players[self.__me + 1],self.__phase)
-                        # ... send it to the next player
-                        self.__outchan.send(self.__messages.packets.SerializeToString())
+                        self.send_message(destination = self.__players[self.__me + 1])
                         self.__logchan.send("Player " + str(self.__me) + " encrypt new address")
                         self.__phase = 'BroadcastOutput'
         # Shuffling
         elif self.__phase is 'Shuffling':
             if self.__me == self.__N:
-                phase = self.__messages.phases[self.__phase]
                 sender = self.__players[self.__N - 1]
                 if self.__inbox[phase].get(sender):
                     self.__messages.packets.ParseFromString(self.__inbox[phase][sender])
@@ -185,15 +180,11 @@ class Round(object):
                     self.__messages.shuffle_packets()
                     # form packet ...
                     self.__phase = 'BroadcastOutput'
-                    self.__messages.form_all_packets(self.__sk, self.__session, self.__me, self.__vk, None, self.__phase)
-                    # and send it to everyone
-                    self.__outchan.send(self.__messages.packets.SerializeToString())
+                    self.send_message()
                     self.__logchan.send("Player " + str(self.__me) + " encrypt new address")
             else:
-                phase = self.__messages.phases[self.__phase]
                 sender = self.__players[self.__me - 1]
                 if self.__inbox[phase].get(sender):
-                    # self.__messages.clear_packets()
                     self.__messages.packets.ParseFromString(self.__inbox[phase][sender])
                     for packet in self.__messages.packets.packet:
                         packet.packet.message.str = self.__crypto.decrypt(packet.packet.message.str)
@@ -201,15 +192,11 @@ class Round(object):
                     self.__messages.add_str(self.encrypt_new_address())
                     # shuffle the packets
                     self.__messages.shuffle_packets()
-                    # form packet and...
-                    self.__messages.form_all_packets(self.__sk, self.__session, self.__me, self.__vk, self.__players[self.__me + 1], self.__phase)
-                    # and send it to next player
-                    self.__outchan.send(self.__messages.packets.SerializeToString())
+                    self.send_message(destination = self.__players[self.__me + 1])
                     self.__logchan.send("Player " + str(self.__me) + " encrypt new address")
                     self.__phase = 'BroadcastOutput'
         # BroadcastOutput
         elif self.__phase is 'BroadcastOutput':
-            phase = self.__messages.phases[self.__phase]
             sender = self.__players[self.__N]
             if self.__inbox[phase].get(sender):
                 # extract addresses from packets
@@ -223,8 +210,7 @@ class Round(object):
                 else:
                     self.__messages.clear_packets()
                     self.__messages.blame_missing_output(self.__vk)
-                    self.__messages.form_last_packet(self.__sk, self.__session, self.__me, self.__vk, None,self.__phase)
-                    self.__outchan.send(self.__messages.packets.SerializeToString())
+                    self.send_message()
                     self.__logchan.send("Blame: player " + str(self.__me) + "  not found itsefs new address")
                     raise BlameException("Blame: player " + str(self.__me) + "  not found itsefs new address")
                 self.__phase = 'EquivocationCheck'
@@ -236,13 +222,9 @@ class Round(object):
                 self.__messages.clear_packets()
                 # add new hash
                 self.__messages.add_hash(computed_hash)
-                # sign a packets for broadcasting
-                self.__messages.form_last_packet(self.__sk, self.__session, self.__me, self.__vk, None, self.__phase)
-                # broadcast the message
-                self.__outchan.send(self.__messages.packets.SerializeToString())
+                self.send_message()
         elif self.__phase is 'EquivocationCheck':
             computed_hash =self.__crypto.hash( str(self.__new_addresses) + str([self.__encryption_keys[self.__players[i]] for i in range(1, self.__N + 1) ]))
-            phase  = self.__messages.phases[self.__phase]
             if len(self.__inbox[phase]) == self.__N:
                 messages = self.__inbox[phase]
                 for player in messages:
@@ -251,26 +233,20 @@ class Round(object):
                     if hash_value != computed_hash:
                         self.__messages.clear_packets()
                         self.__messages.blame_equivocation_failure(self.__players[player])
-                        self.__messages.form_last_packet(self.__sk, self.__session, self.__me, self.__vk, None,self.__phase)
-                        self.__outchan.send(self.__messages.packets.SerializeToString())
+                        self.send_message()
                         self.__logchan.send('Blame: wrong hash computed by player' + str(player))
                         raise BlameException('Wrong hash computed by player ' + str(player))
                 self.__logchan.send('Player ' + str(self.__me) + ' is checked the hashed.')
                 self.__phase = 'VerificationAndSubmission'
                 self.__logchan.send("Player "+ str(self.__me) + " reaches phase 5: ")
                 inputs = {self.__players[player]:self.__coin.address(self.__players[player])  for player in self.__players}
-                # self.__logchan.send(str(inputs))
-                # (amount, fee, inputs, outputs, changes):
                 self.transaction = self.__coin.make_unsigned_transaction(self.__amount, self.__fee, inputs, self.__new_addresses, self.__change_addresses)
                 signature = self.__coin.get_transaction_signature(self.transaction, self.__sk, self.__vk)
-                # signature = self.__sk.sign_message(transaction,True)
                 self.__messages.clear_packets()
                 self.__messages.add_signature(signature)
-                self.__messages.form_last_packet(self.__sk, self.__session, self.__me, self.__vk, None, self.__phase)
-                self.__outchan.send(self.__messages.packets.SerializeToString())
+                self.send_message()
                 self.__logchan.send("Player " + str(self.__me) + " send transction signature")
         elif self.__phase is 'VerificationAndSubmission':
-                phase = self.__messages.phases[self.__phase]
                 if len(self.__inbox[phase]) == self.__N:
                     self.signatures = {}
                     self.__logchan.send("Player " + str(self.__me) + " got transction signatures")
@@ -282,8 +258,7 @@ class Round(object):
                         if not check:
                             self.__messages.clear_packets()
                             self.__messages.blame_wrong_transaction_signature(self.__players[player])
-                            self.__messages.form_last_packet(self.__sk, self.__session, self.__me, self.__vk, None,self.__phase)
-                            self.__outchan.send(self.__messages.packets.SerializeToString())
+                            self.send_message()
                             self.__logchan.send('Blame: wrong transaction signature from player ' + str(player))
                             raise BlameException('Wrong tx signature from player ' + str(player))
 
@@ -314,5 +289,5 @@ class Round(object):
         self.__logchan.send("Player " + str( self.__me) + " is about to read announcements.")
 
         while not self.done:
-            self.inchan_to_inbox()
-            self.process_inbox()
+            if self.inchan_to_inbox():
+                self.process_inbox()

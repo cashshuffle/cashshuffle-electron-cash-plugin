@@ -152,6 +152,7 @@ class Plugin(BasePlugin):
             self.enable_coinshuffle_settings()
             self.coinshuffle_cancel_button.setEnabled(False)
             self.coinshuffle_inputs.update(self.window.wallet)
+            self.coinshuffle_outputs.update(self.window.wallet)
         else:
             header = message[:6]
             if header == 'Player':
@@ -165,8 +166,7 @@ class Plugin(BasePlugin):
             self.coinshuffle_text_output.setTextColor(QColor('black'))
 
     def start_coinshuffle_protocol(self):
-        print('protocol started')
-        # from electroncash_plugins.coinshuffle.client import protocolThread
+        # print('protocol started')
         from .client import protocolThread
         from electroncash.bitcoin import (regenerate_key, deserialize_privkey)
         from .shuffle import ConsoleLogger
@@ -246,22 +246,22 @@ class Plugin(BasePlugin):
     def create_shuffle_tab(self):
         self.coinshuffle_fee_constant = 1000
         # This is for debug
-        # self.coinshuffle_fee_constant = 100
+        # self.coinshuffle_fee_constant = 900
 
         from .shuffle import (InputAdressWidget, ChangeAdressWidget, OutputAdressWidget,
                             ConsoleOutput, AmountSelect, ServersList)
 
         self.coinshuffle_amounts = [1e7, 1e6]
         # Use this in test mode
-        # self.coinshuffle_amounts = [1e4, 1e3]
+        # self.coinshuffle_amounts = [1e4, 1e3, 3e3]
         self.shuffle_grid = grid = QGridLayout()
         grid.setSpacing(8)
         grid.setColumnStretch(3, 1)
 
         self.coinshuffle_servers = ServersList()
-        # self.coinshuffle_use_ssl = QCheckBox()
         self.coinshuffle_inputs = InputAdressWidget(decimal_point = self.window.get_decimal_point)
         self.coinshuffle_changes = ChangeAdressWidget()
+        self.coinshuffle_fresh_changes = QCheckBox(_('Show only fresh change addresses'))
         self.coinshuffle_outputs = OutputAdressWidget()
         self.coinshuffle_amount_radio = AmountSelect(self.coinshuffle_amounts, decimal_point = self.window.get_decimal_point)
         self.coinshuffle_fee = QLabel(_(self.window.format_amount_and_units(self.coinshuffle_fee_constant)))
@@ -269,6 +269,7 @@ class Plugin(BasePlugin):
 
         self.coinshuffle_inputs.currentIndexChanged.connect(self.check_sufficient_ammount)
         self.coinshuffle_amount_radio.button_group.buttonClicked.connect(self.check_sufficient_ammount)
+        self.coinshuffle_fresh_changes.stateChanged.connect(lambda: self.coinshuffle_changes.update(self.window.wallet, fresh_only = self.coinshuffle_fresh_changes.isChecked()))
 
         self.coinshuffle_start_button = EnterButton(_("Shuffle"),lambda :self.start_coinshuffle_protocol())
         self.coinshuffle_cancel_button = EnterButton(_("Cancel"),lambda :self.cancel_coinshuffle_protocol())
@@ -277,15 +278,15 @@ class Plugin(BasePlugin):
 
         grid.addWidget(QLabel(_('Shuffle server')), 1, 0)
         # grid.addWidget(QLabel(_('Use SSL')), 2, 0)
-        grid.addWidget(QLabel(_('Shuffle input address')), 3, 0)
-        grid.addWidget(QLabel(_('Shuffle change address')), 4, 0)
+        grid.addWidget(QLabel(_('Shuffle input address')), 2, 0)
+        grid.addWidget(QLabel(_('Shuffle change address')), 3, 0)
         grid.addWidget(QLabel(_('Shuffle output address')), 5, 0)
         grid.addWidget(QLabel(_('Amount')), 6, 0)
         grid.addWidget(QLabel(_('Fee')), 7, 0)
         grid.addWidget(self.coinshuffle_servers, 1, 1,1,-1)
-        # grid.addWidget(self.coinshuffle_use_ssl, 2, 1)
-        grid.addWidget(self.coinshuffle_inputs,3,1,1,-1)
-        grid.addWidget(self.coinshuffle_changes,4,1,1,-1)
+        grid.addWidget(self.coinshuffle_fresh_changes, 4, 1)
+        grid.addWidget(self.coinshuffle_inputs,2,1,1,-1)
+        grid.addWidget(self.coinshuffle_changes,3,1,1,-1)
         grid.addWidget(self.coinshuffle_outputs,5,1,1,-1)
         grid.addWidget(self.coinshuffle_amount_radio,6,1)
         grid.addWidget(self.coinshuffle_fee ,7, 1)

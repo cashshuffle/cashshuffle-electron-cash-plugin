@@ -29,19 +29,6 @@ class Messages(object):
         packet.packet.from_key.key = vk
         packet.packet.registration.amount = amount
 
-    def form_last_packet(self, eck, session, number, vk_from , vk_to, phase):
-        packet = self.packets.packet[-1]
-        packet.packet.session = session
-        packet.packet.number = int(number)
-        packet.packet.phase = self.phases.get(phase)
-        packet.packet.from_key.key = vk_from
-        if vk_to:
-            packet.packet.to_key.key = vk_to
-        else:
-            packet.packet.ClearField('to_key')
-        msg = packet.packet.SerializeToString()
-        packet.signature.signature = eck.sign_message(msg,True)
-
     def form_all_packets(self, eck, session, number, vk_from, vk_to, phase):
         for packet in self.packets.packet:
             packet.packet.session = session
