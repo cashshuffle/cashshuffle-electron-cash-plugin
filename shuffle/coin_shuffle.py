@@ -46,10 +46,11 @@ class Round(object):
         if self.__N == len(set(players.values())):
             if self.__vk in players.values():
                 self.__me = { players[player] : player for player in players}[self.__vk]
-
             else:
+                self.__logchan('Error: publick key is not in the players list')
                 raise ValueError('My public key is not in players list')
         else:
+            self.__logchan.send('Error: same publick keys appears in the pool!')
             raise ValueError('Same public keys appears!')
         # decryption key
         self.__encryption_keys = dict()
@@ -64,6 +65,32 @@ class Round(object):
         self.__debug = False
         self.tx = None
         self.done = None
+
+    def first_player(self):
+        return min(sorted(self.__players))
+
+    def last_player(self):
+        return max(sorted(self.__players))
+
+    def next_player(self, player = None):
+        if player is None:
+            player = self.__me
+        if player is not self.last_player():
+            return sorted(self.__players)[sorted(self.__players).index(player) + 1]
+        else:
+            return None
+
+    def previous_player(self, player = None):
+        if player is None:
+            player = self.__me
+        if player is not self.first_player():
+            return sorted(self.__players)[sorted(self.__players).index(player) - 1]
+        else:
+            return None
+
+    def from_last_to_previous(self):
+        index = sorted(self.__players).index(self.next_player())
+        return reversed(sorted(self.__players)[index:])
 
     def inchan_to_inbox(self):
         """
@@ -92,9 +119,11 @@ class Round(object):
                 self.__logchan.send('Blame: player ' + player + ' message with wrong signature!')
                 raise BlameException('Player ' + player + ' message with wrong signature!')
         # blames = self.__messages.get_blame()
-        if phase == 7: # Normal alias should go here
-            self.__logchan.send('Blame: got Blame message from another player')
-            raise BlameException('Exit by Blame')
+        # if phase == 7: # Normal alias should go here
+        #     self.__logchan.send('Blame: got Blame message from another player')
+        #     if self.__messages.get_blame_reason() == 1:
+        #         return False
+            # raise BlameException('Exit by Blame')
         # if blames:
         #     print('I recieve the blame actually')
         #     self.__logchan.send("Blame on you!")
@@ -108,21 +137,38 @@ class Round(object):
 
     def blame_insufficient_funds(self):
         offenders = list()
+
         for player in self.__players:
-            # address = public_key_to_p2pkh(players[player])
             address = self.__coin.address(self.__players[player])
             if not self.__coin.sufficient_funds(address,self.__amount + self.__fee):
                 offenders.append(self.__players[player])
         if len(offenders) == 0:
-            return
+            return True
         else:
             self.__phase = "Blame"
+            old_players  = self.__players.copy()
+            self.__players = {player:self.__players[player] for player in self.__players if self.__players[player] not in offenders}
             for offender in offenders:
+                self.__messages.clear_packets()
                 self.__messages.blame_insufficient_funds(offender)
                 self.send_message()
                 #log the Exception
-                self.__logchan.send('Blame: insufficient funds of player ' + str(list(self.__players.keys())[list(self.__players.values()).index(offender)]))
-            raise BlameException('Insufficient funds')
+                # self.__logchan.send('Blame: insufficient funds of player ' + str(list(self.__players.keys())[list(self.__players.values()).index(offender)]))
+                self.__logchan.send('Blame: insufficient funds of player ' + str(list(old_players.keys())[list(old_players.values()).index(offender)]))
+            # #exclude offender from players
+            # self.__players = {player:self.__players[player] for player in self.__players if self.__players[player] not in offenders}
+            # change the number of players
+            if len(self.__players) > 1:
+                self.__N = len(self.__players)
+            else:
+                self.__logchan.send('Error: not enough players with sufficent funds')
+                raise Exception('Error: not enough players with sufficent funds')
+            if self.__vk in offenders:
+                self.__logchan.send('Error: players funds is not enough')
+                raise Exception('Error: players funds is not enough')
+            return False
+            # self.__phase = "Announcement"
+            # raise BlameException('Insufficient funds')
 
     def broadcast_new_key(self):
         # Generate encryption/decryption pair
@@ -140,7 +186,11 @@ class Round(object):
         # Add our own address to the mix. Note that if me == N, ie, the last player, then no
         # encryption is done. That is because we have reached the last layer of encryption.
         encrypted = self.__addr_new
-        for i in range(self.__N , self.__me, -1):
+        # for i in range(self.__N , self.__me, -1):
+        # players = sorted(self.__players)
+        # for i in reversed(players[players.index(self.__me):]):
+        # for i in reversed(players[self.next_player():]):
+        for i in self.from_last_to_previous():
             # Successively encrypt with the keys of the players who haven't had their turn yet.
             encrypted = self.__crypto.encrypt(encrypted, self.__encryption_keys[self.__players[i]])
         return encrypted
@@ -161,15 +211,23 @@ class Round(object):
                     self.__phase = 'Shuffling'
                     self.__logchan.send("Player " + str( self.__me) + " reaches phase 2.")
                     self.__messages.clear_packets()
-                    if self.__me == 1:
+                    # if self.__me == 1:
+                    # if self.__me == min(self.__players):
+                    if self.__me is self.first_player():
                         self.__messages.add_str(self.encrypt_new_address())
-                        self.send_message(destination = self.__players[self.__me + 1])
+                        # self.send_message(destination = self.__players[self.__me + 1])
+                        # self.send_message(destination = self.__players[sorted(self.__players)[index(self.__me) + 1])
+                        self.send_message(destination = self.__players[self.next_player()])
                         self.__logchan.send("Player " + str(self.__me) + " encrypt new address")
                         self.__phase = 'BroadcastOutput'
         # Shuffling
         elif self.__phase is 'Shuffling':
-            if self.__me == self.__N:
-                sender = self.__players[self.__N - 1]
+            # if self.__me == self.__N:
+            # if self.__me == max(self.__players):
+            if self.__me is self.last_player():
+                # sender = self.__players[self.__N - 1]
+                # sender = self.__players[sorted(self.__players)[-2]]
+                sender = self.__players[self.previous_player(player = self.last_player())]
                 if self.__inbox[phase].get(sender):
                     self.__messages.packets.ParseFromString(self.__inbox[phase][sender])
                     for packet in self.__messages.packets.packet:
@@ -183,7 +241,9 @@ class Round(object):
                     self.send_message()
                     self.__logchan.send("Player " + str(self.__me) + " encrypt new address")
             else:
-                sender = self.__players[self.__me - 1]
+                # sender = self.__players[self.__me - 1]
+                # sender = self.__players[sorted(self.__players).index(self.__me) - 1]
+                sender = self.__players[self.previous_player()]
                 if self.__inbox[phase].get(sender):
                     self.__messages.packets.ParseFromString(self.__inbox[phase][sender])
                     for packet in self.__messages.packets.packet:
@@ -192,12 +252,15 @@ class Round(object):
                     self.__messages.add_str(self.encrypt_new_address())
                     # shuffle the packets
                     self.__messages.shuffle_packets()
-                    self.send_message(destination = self.__players[self.__me + 1])
+                    # self.send_message(destination = self.__players[self.__me + 1])
+                    self.send_message(destination = self.__players[self.next_player()])
                     self.__logchan.send("Player " + str(self.__me) + " encrypt new address")
                     self.__phase = 'BroadcastOutput'
         # BroadcastOutput
         elif self.__phase is 'BroadcastOutput':
-            sender = self.__players[self.__N]
+            # sender = self.__players[self.__N]
+            # sender = self.__players[max(self.__players)]
+            sender = self.__players[self.last_player()]
             if self.__inbox[phase].get(sender):
                 # extract addresses from packets
                 self.__messages.packets.ParseFromString(self.__inbox[phase][sender])
@@ -217,14 +280,16 @@ class Round(object):
                 self.__logchan.send("Player "+ str(self.__me) + " reaches phase 4: ")
                 # compute hash
                 # computed_hash =str(self.__crypto.hash( str(self.__new_addresses) + str([self.__encryption_keys[self.__players[i]] for i in range(1, self.__N + 1) ])))
-                computed_hash =self.__crypto.hash( str(self.__new_addresses) + str([self.__encryption_keys[self.__players[i]] for i in range(1, self.__N + 1) ]))
+                # computed_hash =self.__crypto.hash( str(self.__new_addresses) + str([self.__encryption_keys[self.__players[i]] for i in range(1, self.__N + 1) ]))
+                computed_hash =self.__crypto.hash( str(self.__new_addresses) + str([self.__encryption_keys[self.__players[i]] for i in sorted(self.__players) ]))
                 # create a new message
                 self.__messages.clear_packets()
                 # add new hash
                 self.__messages.add_hash(computed_hash)
                 self.send_message()
         elif self.__phase is 'EquivocationCheck':
-            computed_hash =self.__crypto.hash( str(self.__new_addresses) + str([self.__encryption_keys[self.__players[i]] for i in range(1, self.__N + 1) ]))
+            # computed_hash =self.__crypto.hash( str(self.__new_addresses) + str([self.__encryption_keys[self.__players[i]] for i in range(1, self.__N + 1) ]))
+            computed_hash =self.__crypto.hash( str(self.__new_addresses) + str([self.__encryption_keys[self.__players[i]] for i in sorted(self.__players) ]))
             if len(self.__inbox[phase]) == self.__N:
                 messages = self.__inbox[phase]
                 for player in messages:
@@ -267,6 +332,27 @@ class Round(object):
                     self.tx = self.transaction
                     self.__logchan.send("Player " + str(self.__me) + " complete protocol")
                     self.done = True
+        elif self.__phase is "Blame":
+            # take reasons from last message
+            reason  = self.__messages.get_blame_reason()
+            # switch by reason
+            if reason is self.__messages.blame_reason('Insufficient Funds'):
+                messages = self.__inbox[phase]
+                # check if all normal players send the blame
+                if len(messages) == self.__N:
+                    #check if all reasons is the same
+                    for sender in messages:
+                        self.__messages.packets.ParseFromString(messages[sender])
+                        if self.__messages.get_blame_reason() is not reason:
+                            self.__logchan.send("Blame: different blame reasons from players")
+                            raise BlameException("Blame: different blame reasons from players")
+                        elif self.__messages.get_accused_key in self.__players.values():
+                            self.__logchan.send("Blame: different blame players from players")
+                            raise BlameException("Blame: different blame players from players")
+                    self.__phase = 'Announcement'
+                    self.broadcast_new_key()
+                    self.__logchan.send("Player " + str(self.__me) + " has broadcasted the new encryption key.")
+                    self.__logchan.send("Player " + str( self.__me) + " is about to read announcements.")
 
 
     def protocol_loop(self):
@@ -280,13 +366,13 @@ class Round(object):
         # There was a problem with the wording of the original paper which would have meant
         # that player 1's funds never would have been checked, but it's necessary to check
         # everybody.
-        self.blame_insufficient_funds()
-        self.__logchan.send("Player " + str(self.__me) + " finds sufficient funds.")
-        self.broadcast_new_key()
-        self.__logchan.send("Player " + str(self.__me) + " has broadcasted the new encryption key.")
-        # Now we wait to receive similar key from everyone else.
-        #TO Reciver form multiple
-        self.__logchan.send("Player " + str( self.__me) + " is about to read announcements.")
+        if self.blame_insufficient_funds():
+            self.__logchan.send("Player " + str(self.__me) + " finds sufficient funds.")
+            self.broadcast_new_key()
+            self.__logchan.send("Player " + str(self.__me) + " has broadcasted the new encryption key.")
+            # Now we wait to receive similar key from everyone else.
+            #TO Reciver form multiple
+            self.__logchan.send("Player " + str( self.__me) + " is about to read announcements.")
 
         while not self.done:
             if self.inchan_to_inbox():

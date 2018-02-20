@@ -9,15 +9,15 @@ class Channel(queue.Queue):
     """
     simple Queue wrapper for using recv and send
     """
-    def __init__(self, switch_timeout = 0.1):
+    def __init__(self, switch_timeout = None):
         queue.Queue.__init__(self)
         self.switch_timeout = switch_timeout
 
     def send(self, message):
-        self.put(message,True, self.switch_timeout)
+        self.put(message, True, timeout = self.switch_timeout)
 
     def recv(self):
-        return self.get()
+        return self.get(timeout = self.switch_timeout)
 
 class ChannelWithPrint(queue.Queue):
 

@@ -1,4 +1,5 @@
 from . import message_pb2 as message_factory
+
 from random import shuffle
 
 def check_for_length(f):
@@ -23,6 +24,9 @@ class Messages(object):
             'Signing':message_factory.SIGNING,
             'Blame':message_factory.BLAME, # Someone has attempted to cheat.
             }
+
+    def blame_reason(self,name):
+        return getattr(message_factory, name.replace(' ','').upper(),None)
 
     def make_greeting(self, vk, amount):
         packet = self.packets.packet.add()
@@ -168,6 +172,14 @@ class Messages(object):
     @check_for_length
     def get_signature(self):
         return self.packets.packet[-1].packet.message.signature.signature
+
+    @check_for_length
+    def get_blame_reason(self):
+        return self.packets.packet[-1].packet.message.blame.reason
+
+    @check_for_length
+    def get_accused_key(self):
+        return self.packets.packet[-1].packet.message.blame.accused.key
 
     def get_signatures_and_packets(self):
         return [ [packet.signature.signature, packet.packet.SerializeToString(), packet.packet.from_key.key] for packet in self.packets.packet]

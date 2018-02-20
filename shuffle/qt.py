@@ -159,9 +159,12 @@ class Plugin(BasePlugin):
                 self.coinshuffle_text_output.setTextColor(QColor('green'))
             if header[:5] == 'Blame':
                 self.coinshuffle_text_output.setTextColor(QColor('red'))
-                self.pThread.join()
-                self.enable_coinshuffle_settings()
-                self.coinshuffle_text_output.append(str(self.pThread.isAlive()))
+                if "insufficient" in message:
+                    pass
+                else:
+                    self.pThread.join()
+                    self.enable_coinshuffle_settings()
+                    self.coinshuffle_text_output.append(str(self.pThread.isAlive()))
             self.coinshuffle_text_output.append(message)
             self.coinshuffle_text_output.setTextColor(QColor('black'))
 
@@ -246,7 +249,7 @@ class Plugin(BasePlugin):
     def create_shuffle_tab(self):
         self.coinshuffle_fee_constant = 1000
         # This is for debug
-        # self.coinshuffle_fee_constant = 900
+        # self.coinshuffle_fee_constant = 100
 
         from .shuffle import (InputAdressWidget, ChangeAdressWidget, OutputAdressWidget,
                             ConsoleOutput, AmountSelect, ServersList)
@@ -277,7 +280,6 @@ class Plugin(BasePlugin):
         self.coinshuffle_cancel_button.setEnabled(False)
 
         grid.addWidget(QLabel(_('Shuffle server')), 1, 0)
-        # grid.addWidget(QLabel(_('Use SSL')), 2, 0)
         grid.addWidget(QLabel(_('Shuffle input address')), 2, 0)
         grid.addWidget(QLabel(_('Shuffle change address')), 3, 0)
         grid.addWidget(QLabel(_('Shuffle output address')), 5, 0)
