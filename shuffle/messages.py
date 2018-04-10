@@ -1,4 +1,5 @@
 from . import message_pb2 as message_factory
+# import message_pb2 as message_factory
 
 from random import shuffle
 
@@ -24,6 +25,7 @@ class Messages(object):
             'Signing':message_factory.SIGNING,
             'Blame':message_factory.BLAME, # Someone has attempted to cheat.
             }
+
 
     def blame_reason(self,name):
         return getattr(message_factory, name.replace(' ','').upper(),None)
@@ -64,6 +66,8 @@ class Messages(object):
         packet.packet.phase = message_factory.BLAME
         # we return nothing here. Message_factory is a state machine, We just update state
 
+    def blame_the_liar(self, accused):
+        self.general_blame(message_factory.LIAR, accused)
 
     def blame_insufficient_funds(self, offender):
         """
@@ -71,17 +75,30 @@ class Messages(object):
         """
         self.general_blame(message_factory.INSUFFICIENTFUNDS, offender)
 
-    def blame_equivocation_failure(self, accused):
+    def blame_equivocation_failure(self, accused, invalid_packets = None):
         """
         accused - is verification key of player with hash mismathc
         """
         self.general_blame(message_factory.EQUIVOCATIONFAILURE, accused)
+        if invalid_packets:
+            self.packets.packet[-1].packet.message.blame.invalid.invalid = invalid_packets
 
     def blame_missing_output(self, accused):
         """
         accused - is verification key of player who haven't find his address
         """
         self.general_blame(message_factory.MISSINGOUTPUT, accused)
+
+    def blame_shuffle_failure(self, accused, hash_value):
+        self.general_blame(message_factory.SHUFFLEFAILURE, accused)
+        self.packets.packet[-1].packet.message.hash.hash = hash_value
+
+    def blame_shuffle_and_equivocation_failure(self, accused, encryption_key, decryption_key, invalid_packets):
+        self.general_blame(message_factory.SHUFFLEANDEQUIVOCATIONFAILURE, accused)
+        self.packets.packet[-1].packet.message.blame.key.key = decryption_key
+        self.packets.packet[-1].packet.message.blame.key.public = encryption_key
+        self.packets.packet[-1].packet.message.blame.invalid.invalid = invalid_packets
+
 
     def blame_invalid_signature(self, accused):
         """
@@ -181,6 +198,18 @@ class Messages(object):
     def get_accused_key(self):
         return self.packets.packet[-1].packet.message.blame.accused.key
 
+    @check_for_length
+    def get_invalid_packets(self):
+        return self.packets.packet[-1].packet.message.blame.invalid.invalid
+
+    @check_for_length
+    def get_public_key(self):
+        return self.packets.packet[-1].packet.message.blame.key.public
+
+    @check_for_length
+    def get_decryption_key(self):
+        return self.packets.packet[-1].packet.message.blame.key.key        
+
     def get_signatures_and_packets(self):
         return [ [packet.signature.signature, packet.packet.SerializeToString(), packet.packet.from_key.key] for packet in self.packets.packet]
 
@@ -192,3 +221,7 @@ class Messages(object):
 
     def clear_packets(self):
         self.__init__()
+
+# z = Messages()
+# z.blame_equivocation_failure('some key')
+# z.packets.packet[-1].packet.message.blame.invalid.invalid = b"x"

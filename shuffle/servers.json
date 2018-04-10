@@ -12,5 +12,9 @@
     "cashmixer.org":{
        "port": 8080,
        "ssl" : true
+    },
+    "localhost":{
+       "port": 33333,
+       "ssl" : false
     }
 }

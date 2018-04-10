@@ -3,12 +3,17 @@ import configparser
 import subprocess
 import os
 import random
+import ecdsa
+import threading
+from electroncash.util import InvalidPassword
 from electroncash_plugins.shuffle.client import protocolThread
 from electroncash_plugins.shuffle.commutator_thread import (ChannelWithPrint, Channel)
 from electroncash_plugins.shuffle.coin import Coin
-import ecdsa
+from electroncash_plugins.shuffle.crypto import Crypto
+from electroncash_plugins.shuffle.phase import Phase
+from electroncash_plugins.shuffle.coin_shuffle import Round
 from electroncash.bitcoin import (regenerate_key, deserialize_privkey, EC_KEY, generator_secp256k1,
-                                  number_to_string ,public_key_to_p2pkh)
+                                  number_to_string ,public_key_to_p2pkh, point_to_ser)
 
 class testNetwork(object):
     "simple class for emulating the network. You can make your own utxo pool for test"
@@ -53,6 +58,385 @@ class random_sk(EC_KEY):
         pvk = ecdsa.util.randrange( pow(2,256) ) %_r
         eck = EC_KEY.__init__(self, number_to_string(pvk,_r))
 
+
+class Crypto_cheater(Crypto):
+    """
+    This class is faking the Crypto. It needs for cheating on encryption decryption phase
+    """
+
+    def generate_fake_key_pair(self):
+        self.fake_private_key = ecdsa.util.randrange( pow(2,256) ) %self._r
+        self.fake_eck = EC_KEY(number_to_string(self.fake_private_key, self._r))
+        self.fake_public_key = point_to_ser(self.fake_private_key*self.G,True)
+
+    def export_fake_public_key(self):
+        return bytes.hex(self.fake_public_key)
+
+    def decrypt(self, message):
+        try:
+            return self.eck.decrypt_message(message)
+        except InvalidPassword:
+            return self.fake_eck.decrypt_message(message)
+        # return self.eck.decrypt_message(message)
+
+class Round_wrong_broadcast(Round):
+    """
+    This Class implements wrong behaviour of protocol
+    when cheater player send wrong encryption keys to one of
+    the player. All we do here is just redefine the broadcast key function
+    """
+
+    def broadcast_new_key(self):
+        # fake_crypto = Crypto()
+        self.crypto.generate_key_pair()
+        self.crypto.generate_fake_key_pair()
+        # fake_crypto.generate_key_pair()
+        victim_key = random.choice([self.players[player] for player in self.players if not self.players[player] == self.vk])
+        print('PLAYER ' + str(self.me) + " IS A CHEATER")
+        print('CHEATER KEY IS ' + str(self.vk) )
+        victim_number = {self.players[player]:player for player in self.players}[victim_key]
+        print('VICTIM is ' + str(victim_number))
+        print('VICTIM KEY is ' + str(victim_key))
+        for player in self.players:
+            self.messages.clear_packets()
+            if self.players[player] is not victim_key:
+                self.messages.add_encryption_key(self.crypto.export_public_key(), self.change)
+            else:
+                # self.messages.add_encryption_key(fake_crypto.export_public_key(), self.change)
+                self.messages.add_encryption_key(self.crypto.export_fake_public_key(), self.change)
+            self.send_message(destination = self.players[player])
+
+# class for testing of sending of different vectors on pahse 3
+class Round_wrong_output_vector(Round):
+    """
+    This Class implements wrong behaviour of protocol
+    when cheater player send wrong output vector to one of
+    the player. All we do here is just redefine the process_shuffling function
+    """
+
+    def process_shuffling(self):
+        phase = self.messages.phases[self.phase]
+        if self.me == self.last_player():
+            victim_key = random.choice([self.players[player] for player in self.players if not self.players[player] == self.vk])
+            victim_number = {self.players[player]:player for player in self.players}[victim_key]
+            self.logchan.send("The last player choose Player " + str(victim_number) + " as a VICTIM")
+            sender = self.players[self.previous_player(player = self.last_player())]
+            self.some_fake_address = '1574vWgV4DAhRBhzx7q2k1p1SeA2wCpiPF'
+            if self.inbox[phase].get(sender):
+                self.messages.packets.ParseFromString(self.inbox[phase][sender])
+                for packet in self.messages.packets.packet:
+                    packet.packet.message.str = self.crypto.decrypt(packet.packet.message.str)
+                # add the last address
+                self.messages.add_str(self.addr_new)
+                # shuffle the packets
+                self.messages.shuffle_packets()
+                # form packet ...
+                self.phase = 'BroadcastOutput'
+                for player in self.players:
+                    if not player == victim_number:
+                        self.send_message(destination = self.players[player])
+                    else:
+                        # find it's own address and change em change some address in the vector
+                        addresses = [packet.packet.message.str for packet in self.messages.packets.packet]
+                        my_index = addresses.index(self.addr_new)
+                        self.messages.packets.packet[my_index].packet.message.str = self.some_fake_address
+                        self.send_message(destination = self.players[player])
+                        self.messages.packets.packet[my_index].packet.message.str = self.addr_new
+                # self.send_message()
+                self.logchan.send("Player " + str(self.me) + " encrypt new address")
+        else:
+            sender = self.players[self.previous_player()]
+            if self.inbox[phase].get(sender):
+                self.messages.packets.ParseFromString(self.inbox[phase][sender])
+                for packet in self.messages.packets.packet:
+                    packet.packet.message.str = self.crypto.decrypt(packet.packet.message.str)
+                # add encrypted new addres of players
+                self.messages.add_str(self.encrypt_new_address())
+                # shuffle the packets
+                self.messages.shuffle_packets()
+                self.send_message(destination = self.players[self.next_player()])
+                self.logchan.send("Player " + str(self.me) + " encrypt new address")
+                self.phase = 'BroadcastOutput'
+
+    def process_broadcast_output(self):
+        phase = self.messages.phases[self.phase]
+        sender = self.players[self.last_player()]
+        if self.inbox[phase].get(sender):
+            # extract addresses from packets
+            self.messages.packets.ParseFromString(self.inbox[phase][sender])
+            self.new_addresses = self.messages.get_new_addresses()
+            #check if player address is in
+            if self.addr_new in self.new_addresses or self.some_fake_address in self.new_addresses:
+                self.logchan.send("Player "+ str(self.me) + " receive addresses and found itsefs")
+            else:
+                self.messages.clear_packets()
+                self.messages.blame_missing_output(self.vk)
+                self.send_message()
+                self.logchan.send("Blame: player " + str(self.me) + "  not found itsefs new address")
+                raise BlameException("Blame: player " + str(self.me) + "  not found itsefs new address")
+            self.phase = 'EquivocationCheck'
+            self.logchan.send("Player "+ str(self.me) + " reaches phase 4: ")
+            # compute hash
+            computed_hash =self.crypto.hash(str(self.new_addresses) + str([self.encryption_keys[self.players[i]] for i in sorted(self.players) ]))
+            # create a new message
+            self.messages.clear_packets()
+            # add new hash
+            self.messages.add_hash(computed_hash)
+            self.send_message()
+
+class Round_wrong_ciphertexts(Round):
+    """
+    This Class implements wrong behaviour of protocol
+    when cheater player add the same ciphertext in the shuffling phase
+    """
+
+    def process_shuffling(self):
+        phase = self.messages.phases[self.phase]
+        if self.me == self.last_player():
+            sender = self.players[self.previous_player(player = self.last_player())]
+            if self.inbox[phase].get(sender):
+                self.messages.packets.ParseFromString(self.inbox[phase][sender])
+                for packet in self.messages.packets.packet:
+                    packet.packet.message.str = self.crypto.decrypt(packet.packet.message.str)
+                # add the last address
+                self.messages.add_str(self.addr_new)
+                # shuffle the packets
+                self.messages.shuffle_packets()
+                # form packet ...
+                self.phase = 'BroadcastOutput'
+                self.send_message()
+                self.logchan.send("Player " + str(self.me) + " encrypt new address")
+        else:
+            sender = self.players[self.previous_player()]
+            if self.inbox[phase].get(sender):
+                self.messages.packets.ParseFromString(self.inbox[phase][sender])
+                for packet in self.messages.packets.packet:
+                    packet.packet.message.str = self.crypto.decrypt(packet.packet.message.str)
+                # add encrypted new addres of players
+                if self.different_ciphertexts():
+                    encrypted_address = self.encrypt_new_address()
+                    packet_index = random.randint(0, len(self.messages.get_new_addresses())-1)
+                    self.logchan.send("CHEATER IS " + str(self.me))
+                    self.messages.packets.packet[packet_index].packet.message.str = encrypted_address
+                    self.messages.add_str(encrypted_address)
+                    # shuffle the packets
+                    self.messages.shuffle_packets()
+                    self.send_message(destination = self.players[self.next_player()])
+                    self.logchan.send("Player " + str(self.me) + " encrypt new address")
+                    self.phase = 'BroadcastOutput'
+                else:
+                    self.logchan.send('wrong ciphertext')
+
+
+class Round_wrong_outputs(Round):
+    """
+    This Class implements wrong behaviour of protocol
+    when cheater change the output for new value
+    """
+
+    def process_shuffling(self):
+        phase = self.messages.phases[self.phase]
+        if self.me == self.last_player():
+            sender = self.players[self.previous_player(player = self.last_player())]
+            if self.inbox[phase].get(sender):
+                self.messages.packets.ParseFromString(self.inbox[phase][sender])
+                for packet in self.messages.packets.packet:
+                    packet.packet.message.str = self.crypto.decrypt(packet.packet.message.str)
+                # add the last address
+                self.messages.add_str(self.addr_new)
+                # shuffle the packets
+                self.messages.shuffle_packets()
+                # form packet ...
+                self.phase = 'BroadcastOutput'
+                self.send_message()
+                self.logchan.send("Player " + str(self.me) + " encrypt new address")
+        else:
+            sender = self.players[self.previous_player()]
+            if self.inbox[phase].get(sender):
+                self.messages.packets.ParseFromString(self.inbox[phase][sender])
+                for packet in self.messages.packets.packet:
+                    packet.packet.message.str = self.crypto.decrypt(packet.packet.message.str)
+                # add encrypted new addres of players
+                if self.different_ciphertexts():
+                    encrypted_address = self.encrypt_new_address()
+                    original_address = self.addr_new
+                    self.addr_new = '1574vWgV4DAhRBhzx7q2k1p1SeA2wCpiPF'
+                    encrypted_address_2 = self.encrypt_new_address()
+                    self.addr_new = original_address
+                    packet_index = random.randint(0, len(self.messages.get_new_addresses())-1)
+                    self.logchan.send("CHEATER IS " + str(self.me))
+                    self.messages.packets.packet[packet_index].packet.message.str = encrypted_address_2
+                    self.messages.add_str(encrypted_address)
+                    # shuffle the packets
+                    self.messages.shuffle_packets()
+                    self.send_message(destination = self.players[self.next_player()])
+                    self.logchan.send("Player " + str(self.me) + " encrypt new address")
+                    self.phase = 'BroadcastOutput'
+                else:
+                    self.logchan.send('wrong ciphertext')
+
+
+# Rewrite the client class with badass behaviour
+class bad_client_wrong_broadcast(protocolThread):
+
+    # def __init__(self, host, port, network, amount, fee, sk, pubk, addr_new, change, logger = None, ssl = False):
+    #     super(bad_client_wrong_broadcast, self).__init__(host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = False)
+
+    def not_time_to_die(f):
+        def wrapper(self):
+            if not self.done.is_set():
+                f(self)
+            else:
+                pass
+        return wrapper
+
+    @not_time_to_die
+    def start_protocol(self):
+        coin = Coin(self.network)
+        crypto = Crypto_cheater()
+        self.messages.clear_packets()
+        begin_phase = Phase('Announcement')
+        # Make Round
+        self.protocol = Round_wrong_broadcast(
+            coin,
+            crypto,
+            self.messages,
+            self.outcome,
+            self.income,
+            self.logger,
+            self.session,
+            begin_phase,
+            self.amount ,
+            self.fee,
+            self.sk,
+            self.vk,
+            self.players,
+            self.addr_new,
+            self.change)
+        self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
+        self.executionThread.start()
+        self.done.wait()
+        self.executionThread.join()
+
+class bad_client_output_vector(protocolThread):
+
+    # def __init__(self, host, port, network, amount, fee, sk, pubk, addr_new, change, logger = None, ssl = False):
+    #     super(bad_client_wrong_broadcast, self).__init__(host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = False)
+
+    def not_time_to_die(f):
+        def wrapper(self):
+            if not self.done.is_set():
+                f(self)
+            else:
+                pass
+        return wrapper
+
+    @not_time_to_die
+    def start_protocol(self):
+        coin = Coin(self.network)
+        crypto = Crypto_cheater()
+        self.messages.clear_packets()
+        begin_phase = Phase('Announcement')
+        # Make Round
+        self.protocol = Round_wrong_output_vector(
+            coin,
+            crypto,
+            self.messages,
+            self.outcome,
+            self.income,
+            self.logger,
+            self.session,
+            begin_phase,
+            self.amount ,
+            self.fee,
+            self.sk,
+            self.vk,
+            self.players,
+            self.addr_new,
+            self.change)
+        self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
+        self.executionThread.start()
+        self.done.wait()
+        self.executionThread.join()
+
+class bad_client_same_ciphertext(protocolThread):
+
+    def not_time_to_die(f):
+        def wrapper(self):
+            if not self.done.is_set():
+                f(self)
+            else:
+                pass
+        return wrapper
+
+    @not_time_to_die
+    def start_protocol(self):
+        coin = Coin(self.network)
+        # crypto = Crypto_cheater()
+        crypto = Crypto()
+        self.messages.clear_packets()
+        begin_phase = Phase('Announcement')
+        # Make Round
+        self.protocol = Round_wrong_ciphertexts(
+            coin,
+            crypto,
+            self.messages,
+            self.outcome,
+            self.income,
+            self.logger,
+            self.session,
+            begin_phase,
+            self.amount ,
+            self.fee,
+            self.sk,
+            self.vk,
+            self.players,
+            self.addr_new,
+            self.change)
+        self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
+        self.executionThread.start()
+        self.done.wait()
+        self.executionThread.join()
+
+class bad_client_changig_the_output(protocolThread):
+
+    def not_time_to_die(f):
+        def wrapper(self):
+            if not self.done.is_set():
+                f(self)
+            else:
+                pass
+        return wrapper
+
+    @not_time_to_die
+    def start_protocol(self):
+        coin = Coin(self.network)
+        crypto = Crypto()
+        self.messages.clear_packets()
+        begin_phase = Phase('Announcement')
+        # Make Round
+        self.protocol = Round_wrong_outputs(
+            coin,
+            crypto,
+            self.messages,
+            self.outcome,
+            self.income,
+            self.logger,
+            self.session,
+            begin_phase,
+            self.amount ,
+            self.fee,
+            self.sk,
+            self.vk,
+            self.players,
+            self.addr_new,
+            self.change)
+        self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
+        self.executionThread.start()
+        self.done.wait()
+        self.executionThread.join()
+
+
 class TestProtocolCase(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
@@ -64,8 +448,8 @@ class TestProtocolCase(unittest.TestCase):
         self.fee = int(config["Clients"]["fee"])
         self.amount = int(config["Clients"]["amount"])
         self.number_of_players = int(config["CashShuffle"]["pool_size"])
-        self.server_degug = " -d " if {"True":True, "False":False}.get(config["CashShuffle"]["enable_debug"], False) else " "
-        self.args = self.server_degug + " -s "+ str(self.number_of_players) + " -p " + str(self.PORT)
+        self.server_debug = " -d " if {"True":True, "False":False}.get(config["CashShuffle"]["enable_debug"], False) else " "
+        self.args = self.server_debug + " -s "+ str(self.number_of_players) + " -p " + str(self.PORT)
         self.casshuffle_path = "/home/yurkazaytsev/work/src/github.com/cashshuffle/cashshuffle/cashshuffle"
 
     def setUp(self):
@@ -73,12 +457,21 @@ class TestProtocolCase(unittest.TestCase):
         self.logger = ChannelWithPrint()
         self.server = subprocess.Popen("exec " + self.casshuffle_path + self.args, shell = True, preexec_fn=os.setsid)
 
-
     def tearDown(self):
         self.server.kill()
 
     def get_random_address(self):
         return public_key_to_p2pkh(bytes.fromhex(random_sk().get_public_key()))
+
+    def make_bad_client(self, bad_cleint_thread , with_print = False):
+        sk = random_sk()
+        channel = ChannelWithPrint() if with_print else Channel()
+        pubk = sk.get_public_key()
+        addr = public_key_to_p2pkh(bytes.fromhex(pubk))
+        self.network.add_coin(addr , self.amount + random.randint(self.amount + 1 , self.amount + self.fee + 1000))
+        # add checking fro parent class inheritance here
+        # (host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = False)
+        return bad_cleint_thread(self.HOST, self.PORT, self.network, self.amount, self.fee, sk, pubk, self.get_random_address(), self.get_random_address(), logger = channel)
 
     def make_clients_threads(self, number_of_clients = None, with_print = False):
         if not number_of_clients:
@@ -103,6 +496,12 @@ class TestProtocolCase(unittest.TestCase):
     def stop_protocols(self, protocolThreads):
         for pThread in protocolThreads:
             pThread.join()
+
+    def is_protocol_complete(self, pThread):
+        if pThread.protocol:
+            return pThread.protocol.done
+        else:
+            return False
 
     def is_round_live(sefl, pThread):
         return pThread.executionThread.is_alive() if pThread.executionThread else None

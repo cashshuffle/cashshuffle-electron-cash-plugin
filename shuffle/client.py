@@ -53,12 +53,12 @@ class protocolThread(threading.Thread):
         self.done = threading.Event()
 
     def not_time_to_die(f):
+
         def wrapper(self):
             if not self.done.is_set():
                 f(self)
             else:
                 pass
-
         return wrapper
 
     @not_time_to_die
@@ -76,7 +76,7 @@ class protocolThread(threading.Thread):
     @not_time_to_die
     def wait_for_announcment(self):
         while self.number_of_players is None:
-            req = self.outcome.get()
+            req = self.outcome.recv()
             if self.done.is_set():
                 break
             if req is None:
@@ -113,6 +113,10 @@ class protocolThread(threading.Thread):
         self.players = {packet.packet.number:str(packet.packet.from_key.key) for packet in self.messages.packets.packet}
         if self.players:
             self.logger.send('Player ' +str(self.number)+ " get " + str(len(self.players))+".\n")
+        #check if all keys are different
+        if len(set(self.players.values())) is not self.number_of_players:
+            self.logger.send('Error: The same keys appears!')
+            self.done.set()
 
     @not_time_to_die
     def start_protocol(self):
@@ -137,7 +141,6 @@ class protocolThread(threading.Thread):
             self.players,
             self.addr_new,
             self.change)
-        # self.executionThread = threading.Thread(target = self.protocol.protocol_definition)
         self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
         self.executionThread.start()
         self.done.wait()
@@ -165,7 +168,7 @@ class protocolThread(threading.Thread):
         try:
             self.gather_the_keys()
         except:
-            self.logger.send("Error: cannot gather the keys")
+                self.logger.send("Error: cannot gather the keys")
         self.start_protocol()
         if self.commutator.is_alive():
             self.commutator.join()
