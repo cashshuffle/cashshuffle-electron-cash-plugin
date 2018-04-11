@@ -450,7 +450,7 @@ class TestProtocolCase(unittest.TestCase):
         self.number_of_players = int(config["CashShuffle"]["pool_size"])
         self.server_debug = " -d " if {"True":True, "False":False}.get(config["CashShuffle"]["enable_debug"], False) else " "
         self.args = self.server_debug + " -s "+ str(self.number_of_players) + " -p " + str(self.PORT)
-        self.casshuffle_path = "/home/yurkazaytsev/work/src/github.com/cashshuffle/cashshuffle/cashshuffle"
+        self.casshuffle_path = ""#your path go here
 
     def setUp(self):
         self.network = testNetwork()
