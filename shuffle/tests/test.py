@@ -5,6 +5,7 @@ import os
 import random
 import ecdsa
 import threading
+import time
 from electroncash.util import InvalidPassword
 from electroncash_plugins.shuffle.client import protocolThread
 from electroncash_plugins.shuffle.commutator_thread import (ChannelWithPrint, Channel)
@@ -450,11 +451,12 @@ class TestProtocolCase(unittest.TestCase):
         self.number_of_players = int(config["CashShuffle"]["pool_size"])
         self.server_debug = " -d " if {"True":True, "False":False}.get(config["CashShuffle"]["enable_debug"], False) else " "
         self.args = self.server_debug + " -s "+ str(self.number_of_players) + " -p " + str(self.PORT)
-        self.casshuffle_path = ""#your path go here
+        self.casshuffle_path = config["CashShuffle"]["path"]
 
     def setUp(self):
         self.network = testNetwork()
         self.logger = ChannelWithPrint()
+        print("exec " + self.casshuffle_path + self.args)
         self.server = subprocess.Popen("exec " + self.casshuffle_path + self.args, shell = True, preexec_fn=os.setsid)
 
     def tearDown(self):
@@ -489,8 +491,9 @@ class TestProtocolCase(unittest.TestCase):
         protocolThreads = [testThread.from_sk(player["sk"], self.HOST, self.PORT, self.network, self.amount, self.fee, self.get_random_address(), self.get_random_address(), logger = player['channel']) for player in players]
         return protocolThreads
 
-    def start_protocols(self, protocolThreads):
+    def start_protocols(self, protocolThreads, delay = 0):
         for pThread in protocolThreads:
+            time.sleep(delay)
             pThread.start()
 
     def stop_protocols(self, protocolThreads):

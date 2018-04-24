@@ -394,7 +394,7 @@ class Round(object):
                     elif self.messages.get_accused_key in self.players.values():
                         self.logchan.send("Blame: different blame players from players")
                         raise BlameException("Blame: different blame players from players")
-                # self.ban_the_liar(self.messages.get_accused_key())
+                self.ban_the_liar(self.messages.get_accused_key())
                 self.inbox[self.messages.phases["Blame"]] = {}
                 self.phase = 'Announcement'
                 self.broadcast_new_key()
@@ -450,6 +450,8 @@ class Round(object):
                         if ec in encryption_keys:
                             del self.inbox[phase_1][message]
                     # set proper phase
+                    for player in all_cheaters:
+                        self.ban_the_liar(player)
                     if not self.vk in all_cheaters:
                         self.inbox[self.messages.phases["Blame"]] = {}
                         self.phase = 'Announcement'
@@ -486,6 +488,7 @@ class Round(object):
                 cheater = self.check_for_shuffling()
                 if cheater:
                     if not cheater == self.vk:
+                        self.ban_the_liar(cheater)
                         self.players = {player:self.players[player] for player in self.players if not self.players[player] == cheater}
                         self.N = len(self.players)
                         self.inbox = {self.messages.phases[phase]:{} for phase in self.messages.phases}
