@@ -107,4 +107,4 @@ class Coin(object):
         pk, compressed = pubkey_from_signature(sig,Hash(msg_magic(message)))
         address_from_signature = public_key_to_p2pkh(point_to_ser(pk.pubkey.point,compressed))
         address_from_vk = self.address(vk)
-        return address_from_signature == address_from_signature
+        return address_from_vk == address_from_signature
