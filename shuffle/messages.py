@@ -1,5 +1,6 @@
 from . import message_pb2 as message_factory
 # import message_pb2 as message_factory
+# from electroncash_plugins.shuffle import message_pb2 as message_factory
 
 from random import shuffle
 
@@ -55,6 +56,7 @@ class Messages(object):
         accused is a veryfikation key! of player who accused the Blame
         reason is a reason why
         """
+        self.clear_packets()
         # add new packet
         packet = self.packets.packet.add()
         # set blame resaon
@@ -208,7 +210,7 @@ class Messages(object):
 
     @check_for_length
     def get_decryption_key(self):
-        return self.packets.packet[-1].packet.message.blame.key.key        
+        return self.packets.packet[-1].packet.message.blame.key.key
 
     def get_signatures_and_packets(self):
         return [ [packet.signature.signature, packet.packet.SerializeToString(), packet.packet.from_key.key] for packet in self.packets.packet]
@@ -219,9 +221,8 @@ class Messages(object):
     def get_blame(self):
         return [packet.packet.message for packet in self.packets.packet]
 
+    def get_strs(self):
+        return [packet.packet.message.str for packet in self.packets.packet]
+
     def clear_packets(self):
         self.__init__()
-
-# z = Messages()
-# z.blame_equivocation_failure('some key')
-# z.packets.packet[-1].packet.message.blame.invalid.invalid = b"x"

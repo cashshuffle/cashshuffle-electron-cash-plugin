@@ -6,9 +6,7 @@ import time
 import select
 
 class Channel(queue.Queue):
-    """
-    simple Queue wrapper for using recv and send
-    """
+    """simple Queue wrapper for using recv and send"""
     def __init__(self, switch_timeout = None):
         queue.Queue.__init__(self)
         self.switch_timeout = switch_timeout
@@ -29,9 +27,7 @@ class ChannelWithPrint(queue.Queue):
         return self.get()
 
 class Commutator(threading.Thread):
-    """
-    Class for decoupling of send and recv ops.
-    """
+    """Class for decoupling of send and recv ops."""
     def __init__(self, income, outcome, logger = ChannelWithPrint(), buffsize = 4096, timeout = 0, switch_timeout = 0.1, ssl = False):
         super(Commutator, self).__init__()
         self.income = income
@@ -75,23 +71,18 @@ class Commutator(threading.Thread):
         try:
             bare_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             bare_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            # bare_socket.settimeout(self.timeout)
             if self.ssl:
                 self.socket = ssl.wrap_socket(bare_socket, ssl_version=ssl.PROTOCOL_TLSv1_2, ciphers="ECDHE-RSA-AES128-GCM-SHA256")
             else:
                 self.socket = bare_socket
-            # self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             print(self.socket)
             self.socket.connect((host, port))
-            # self.socket.settimeout(self.timeout)
             self.debug('connected')
         except IOError as e:
             self.logger.put(str(e))
             raise(e)
 
     def _send(self, msg):
-        # print(msg)
         message = msg + self.frame
         self.socket.sendall(message)
 

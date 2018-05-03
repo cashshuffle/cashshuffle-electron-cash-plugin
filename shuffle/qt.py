@@ -36,16 +36,7 @@ import PyQt5.QtCore as QtCore
 import PyQt5.QtGui as QtGui
 from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QGridLayout, QLineEdit, QHBoxLayout, QWidget, QCheckBox)
 
-# from PyQt4.QtGui import *
-# from PyQt4.QtCore import *
-# import PyQt4.QtCore as QtCore
-# import PyQt4.QtGui as QtGui
-# # from PyQt4.QtWidgets import (QVBoxLayout, QLabel, QGridLayout, QLineEdit)
-# from PyQt4.QtGui import (QVBoxLayout, QLabel, QGridLayout, QLineEdit)
-
-
 from electroncash.plugins import BasePlugin, hook
-# from electroncash.paymentrequest import PaymentRequest
 from electroncash.i18n import _
 from electroncash_gui.qt.util import EnterButton, Buttons, CloseButton
 from electroncash_gui.qt.util import OkButton, WindowModalDialog
@@ -63,13 +54,8 @@ class Plugin(BasePlugin):
 
     def __init__(self, parent, config, name):
         BasePlugin.__init__(self, parent, config, name)
-        # self.server = self.config.get('coinshuffleserver', '')
-        # self.server_ssl = self.config.get('coinshufflessl', False)
         self.window = None
         self.tab = None
-        # will try to add parent functionality here
-        # self.username = self.config.get('user', '')
-        # self.password = self.config.get('password', '')
 
     @hook
     def init_qt(self, gui):
@@ -90,8 +76,6 @@ class Plugin(BasePlugin):
 
     def update(self, window):
         self.window = window
-        # add_optional_tab
-        # tab = window.shuffle_tab
         self.tab = self.create_shuffle_tab()
         self.set_coinshuffle_addrs()
         icon = QIcon(":icons/tab_coins.png")
@@ -102,14 +86,6 @@ class Plugin(BasePlugin):
         self.tab.tab_pos = len(self.window.tabs)
         self.tab.tab_name = name
         self.window.tabs.addTab(self.tab, icon, description.replace("&", ""))
-        # print(window.config.get('show_{}_tab'.format(name), False))
-        # #add_toggle_action
-        # is_shown = window.config.get('show_{}_tab'.format(tab.tab_name), False)
-        # item_name = (_("Hide") if is_shown else _("Show")) + " " + tab.tab_description
-        # menu_bar = window.menuBar()
-        # print(str(menu_bar.menus))
-        # tab.menu_action = menu_bar.addAction(item_name, lambda: window.toggle_tab(tab))
-        # window.setMenuBar(menu_bar)
 
     def set_coinshuffle_addrs(self):
         self.coinshuffle_servers.setItems()
@@ -161,6 +137,8 @@ class Plugin(BasePlugin):
                 self.coinshuffle_text_output.setTextColor(QColor('red'))
                 if "insufficient" in message:
                     pass
+                elif "wrong hash" in message:
+                    pass
                 else:
                     self.pThread.join()
                     self.enable_coinshuffle_settings()
@@ -169,7 +147,6 @@ class Plugin(BasePlugin):
             self.coinshuffle_text_output.setTextColor(QColor('black'))
 
     def start_coinshuffle_protocol(self):
-        # print('protocol started')
         from .client import protocolThread
         from electroncash.bitcoin import (regenerate_key, deserialize_privkey)
         from .shuffle import ConsoleLogger
@@ -187,14 +164,9 @@ class Plugin(BasePlugin):
                 self.window.show_error(str(e), parent=parent)
                 continue
         try:
-            # server_params = self.window.config.get('coinshuffleserver').split(":")
-            # server = server_params[0]
-            # port = int(server_params[1])
             server_params = self.coinshuffle_servers.get_current_server()
             server = server_params['server']
             port = server_params['port']
-            # ssl = self.window.config.get('coinshufflessl')
-            # ssl = self.coinshuffle_use_ssl.isChecked()
             ssl = server_params.get('ssl', False)
         except:
             self.coinshuffle_text_output.setText('Wrong server connection string')
@@ -209,11 +181,6 @@ class Plugin(BasePlugin):
         #disable inputs
         self.disable_coinshuffle_settings()
         self.coinshuffle_cancel_button.setEnabled(True)
-        # self.coinshuffle_start_button.setEnabled(False)
-        # self.coinshuffle_inputs.setEnabled(False)
-        # self.coinshuffle_changes.setEnabled(False)
-        # self.coinshuffle_outputs.setEnabled(False)
-        # self.coinshuffle_amount_radio.setEnabled(False)
 
         amount = self.coinshuffle_amount_radio.get_amount()
         fee = self.coinshuffle_fee_constant
