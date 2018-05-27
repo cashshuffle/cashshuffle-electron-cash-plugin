@@ -242,9 +242,16 @@ class ServersList(QComboBox):
 
     def load_servers_list(self):
         try:
-
-            with open(os.path.join(os.path.dirname(__file__),self.servers_path), 'r') as f:
-                r = json.loads(f.read())
+            zips = __file__.find(".zip")
+            if zips == -1:
+                with open(os.path.join(os.path.dirname(__file__),self.servers_path), 'r') as f:
+                    r = json.loads(f.read())
+            else:
+                r = {}
+                from zipfile import ZipFile
+                zip_file = ZipFile(__file__[: zips + 4])
+                with zip_file.open("shuffle/" + self.servers_path) as f:
+                    r = json.loads(f.read().decode())
         except:
             r = {}
         self.servers_list = r
