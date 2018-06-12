@@ -1,32 +1,24 @@
-import sys
 import time
+import threading
 from .coin import Coin
 from .crypto import Crypto
 from .messages import Messages
-from .commutator_thread import Commutator
-from .commutator_thread import Channel
-from .commutator_thread import ChannelWithPrint
+from .commutator_thread import Commutator, Channel, ChannelWithPrint
 from .phase import Phase
-import socket
-import threading
 from .coin_shuffle import Round
-from ecdsa.util import number_to_string
-import ecdsa
-from electroncash.bitcoin import (
-    generator_secp256k1, point_to_ser, public_key_to_p2pkh, EC_KEY,
-    bip32_root, bip32_public_derivation, bip32_private_derivation, pw_encode,
-    pw_decode, Hash, public_key_from_private_key, address_from_private_key,
-    is_private_key, xpub_from_xprv, is_new_seed, is_old_seed,
-    var_int, op_push, msg_magic)
 
-class protocolThread(threading.Thread):
+class ProtocolThread(threading.Thread):
     """
     This class emulate thread with protocol run
     """
-    def __init__(self, host, port, network, amount, fee, sk, pubk, addr_new, change, logger = None, ssl = False):
+    def __init__(self, host, port, network,
+                 amount, fee, sk, pubk,
+                 addr_new, change, logger=None, ssl=False):
+
         threading.Thread.__init__(self)
         self.host = host
         self.port = port
+        self.ssl = ssl
         self.messages = Messages()
         self.income = Channel()
         self.outcome = Channel()
@@ -34,7 +26,7 @@ class protocolThread(threading.Thread):
             self.logger = ChannelWithPrint()
         else:
             self.logger = logger
-        self.commutator = Commutator(self.income, self.outcome, ssl = ssl)
+        self.commutator = Commutator(self.income, self.outcome, ssl=ssl)
         self.vk = pubk
         self.session = None
         self.number = None
@@ -49,20 +41,21 @@ class protocolThread(threading.Thread):
         self.protocol = None
         self.network = network
         self.tx = None
-        self.executionThread = None
+        self.execution_thread = None
         self.done = threading.Event()
 
-    def not_time_to_die(f):
-
+    def not_time_to_die(func):
+        "Check if 'done' event appear"
         def wrapper(self):
             if not self.done.is_set():
-                f(self)
+                func(self)
             else:
                 pass
         return wrapper
 
     @not_time_to_die
     def register_on_the_pool(self):
+        "This method trying to register player on the pool"
         self.messages.make_greeting(self.vk, int(self.amount))
         msg = self.messages.packets.SerializeToString()
         self.income.send(msg)
@@ -75,6 +68,7 @@ class protocolThread(threading.Thread):
 
     @not_time_to_die
     def wait_for_announcment(self):
+        "This method waits for announcement messages from other pool"
         while self.number_of_players is None:
             req = self.outcome.recv()
             if self.done.is_set():
@@ -94,7 +88,9 @@ class protocolThread(threading.Thread):
 
     @not_time_to_die
     def share_the_key(self):
-        self.logger.send("Player " + str(self.number) + " is about to share verification key with " + str(self.number_of_players) +" players.\n")
+        "This method shares the verification keys among the players in the pool"
+        self.logger.send("Player " + str(self.number) + " is about to share verification key with "
+                         + str(self.number_of_players) +" players.\n")
         #Share the keys
         self.messages.clear_packets()
         self.messages.packets.packet.add()
@@ -106,11 +102,13 @@ class protocolThread(threading.Thread):
 
     @not_time_to_die
     def gather_the_keys(self):
+        "This method gather the verification keys from other players in the pool"
         messages = b''
-        for i in range(self.number_of_players):
+        for _ in range(self.number_of_players):
             messages += self.outcome.recv()
         self.messages.packets.ParseFromString(messages)
-        self.players = {packet.packet.number:str(packet.packet.from_key.key) for packet in self.messages.packets.packet}
+        self.players = {packet.packet.number:str(packet.packet.from_key.key)
+                        for packet in self.messages.packets.packet}
         if self.players:
             self.logger.send('Player ' +str(self.number)+ " get " + str(len(self.players))+".\n")
         #check if all keys are different
@@ -120,6 +118,7 @@ class protocolThread(threading.Thread):
 
     @not_time_to_die
     def start_protocol(self):
+        "This method starts the protocol thread"
         coin = Coin(self.network)
         crypto = Crypto()
         self.messages.clear_packets()
@@ -134,20 +133,21 @@ class protocolThread(threading.Thread):
             self.logger,
             self.session,
             begin_phase,
-            self.amount ,
+            self.amount,
             self.fee,
             self.sk,
             self.vk,
             self.players,
             self.addr_new,
             self.change)
-        self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
-        self.executionThread.start()
+        self.execution_thread = threading.Thread(target=self.protocol.protocol_loop)
+        self.execution_thread.start()
         self.done.wait()
-        self.executionThread.join()
+        self.execution_thread.join()
 
 
     def run(self):
+        "this method trying to run the round and catch possible problems with it"
         try:
             self.commutator.connect(self.host, self.port)
             self.commutator.start()
@@ -168,18 +168,21 @@ class protocolThread(threading.Thread):
         try:
             self.gather_the_keys()
         except:
-                self.logger.send("Error: cannot gather the keys")
+            self.logger.send("Error: cannot gather the keys")
         self.start_protocol()
         if self.commutator.is_alive():
             self.commutator.join()
 
+
     def stop(self):
-        if self.executionThread:
+        "This method stops the protocol threads"
+        if self.execution_thread:
             self.protocol.done = True
         self.done.set()
         self.outcome.send(None)
 
 
-    def join(self, timeout = None):
+    def join(self, timeout=None):
+        "This method Joins the protocol thread"
         self.stop()
         threading.Thread.join(self, timeout)

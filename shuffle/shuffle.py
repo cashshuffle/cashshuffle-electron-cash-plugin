@@ -23,21 +23,21 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import json
+import os
+
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
 from electroncash_gui.qt.util import *
 from electroncash.i18n import _
-from .client import protocolThread
-from electroncash.bitcoin import regenerate_key
-from electroncash.address import Address
-
-import json
-import os
+from .client import ProtocolThread
+# from electroncash.bitcoin import regenerate_key
+# from electroncash.address import Address
 
 class AmountSelect(QGroupBox):
 
-    def __init__(self, values, parent = None, decimal_point = None ):
+    def __init__(self, values, parent=None, decimal_point=None):
         QGroupBox.__init__(self)
         if decimal_point:
             self.decimal_point = decimal_point
@@ -59,23 +59,23 @@ class AmountSelect(QGroupBox):
 
     def add_units(self, value):
         p = self.decimal_point()
-        if p not in [2, 5 , 8]:
+        if p not in [2, 5, 8]:
             p = 8
-        return str(value*(10**(-p)))+ " " + {2:"bits", 5:"mBCH", 8: "BCH" }[p]
+        return str(value*(10**(-p)))+ " " + {2:"bits", 5:"mBCH", 8: "BCH"}[p]
 
     def get_amount(self):
         return self.values[self.button_group.checkedId()]
 
 class InputAdressWidget(QComboBox):
 
-    def __init__(self, decimal_point, parent = None):
+    def __init__(self, decimal_point, parent=None):
         QComboBox.__init__(self, parent)
         self.decimal_point = decimal_point
 
     def amounted_value(self, value):
         p = self.decimal_point()
         units = {2:"bits", 5:"mBCH", 8:"BCH"}
-        if p not in  [2,5,8]:
+        if p not in [2, 5, 8]:
             p = 8
         return str(value * (10**(- p))) + " " + units[p]
 
@@ -96,12 +96,13 @@ class InputAdressWidget(QComboBox):
     def setItmes(self, wallet):
         self.inputsArray = wallet.get_utxos()
         for utxo in self.inputsArray:
-            self.addItem(utxo.get('address').to_string(Address.FMT_LEGACY)+': '+ self.amounted_value(utxo['value']))
+            self.addItem(utxo.get('address').to_string(Address.FMT_LEGACY) + ': ' +
+                         self.amounted_value(utxo['value']))
 
     def get_input_address(self):
         return self.inputsArray[self.currentIndex()]['address']
 
-    def get_input_address_as_string(self, fmt = Address.FMT_LEGACY):
+    def get_input_address_as_string(self, fmt=Address.FMT_LEGACY):
         return self.inputsArray[self.currentIndex()]['address'].to_string(fmt)
 
     def get_input_value(self):
@@ -113,7 +114,7 @@ class InputAdressWidget(QComboBox):
 
 class OutputAdressWidget(QComboBox):
 
-    def __init__(self, parent = None):
+    def __init__(self, parent=None):
         QComboBox.__init__(self, parent)
 
     def clear_addresses(self):
@@ -125,7 +126,7 @@ class OutputAdressWidget(QComboBox):
         for address in self.outputsArray:
             self.addItem(address.to_string(Address.FMT_LEGACY))
 
-    def get_output_address(self, fmt = Address.FMT_LEGACY):
+    def get_output_address(self, fmt=Address.FMT_LEGACY):
         return self.outputsArray[self.currentIndex()].to_string(fmt)
 
     def update(self, wallet):
@@ -138,8 +139,12 @@ class OutputAdressWidget(QComboBox):
         else:
             self.setCurrentIndex(0)
 
+
 class ConsoleLogger(QObject):
-    logUpdater  = pyqtSignal(str)
+    logUpdater = pyqtSignal(str)
+
+    def __init__(self):
+        QObject.__init__(self)
 
     def send(self, message):
         self.logUpdater.emit(str(message))
@@ -147,12 +152,14 @@ class ConsoleLogger(QObject):
     def put(self, message):
         self.send(message)
 
+
 class ConsoleOutput(QTextEdit):
 
-    def __init__(self,  parent = None):
+    def __init__(self, parent=None):
         QTextEdit.__init__(self, parent)
         self.setReadOnly(True)
         self.setText('Console output go here')
+
 
 class ChangeAdressWidget(QComboBox):
 
@@ -166,18 +173,19 @@ class ChangeAdressWidget(QComboBox):
         for addr in self.ChangesArray:
             self.addItem(addr.to_string(Address.FMT_LEGACY))
 
-    def update(self, wallet, fresh_only = False):
+    def update(self, wallet, fresh_only=False):
         self.clear()
         changes = wallet.get_change_addresses()
         if not fresh_only:
             self.ChangesArray = changes
         else:
-            self.ChangesArray = [change for change in changes if len(wallet.get_address_history(change)) == 0 ]
+            self.ChangesArray = [change for change in changes
+                                 if len(wallet.get_address_history(change)) == 0]
         self.addItem('Use input as change address')
         for addr in self.ChangesArray:
             self.addItem(addr.to_string(Address.FMT_LEGACY))
 
-    def get_change_address(self, fmt = Address.FMT_LEGACY):
+    def get_change_address(self, fmt=Address.FMT_LEGACY):
         i = self.currentIndex()
         if i > 0:
             return self.ChangesArray[i-1].to_string(fmt)
@@ -189,7 +197,12 @@ class ShuffleList(MyTreeWidget):
     filter_columns = [0, 2]  # Address, Label
 
     def __init__(self, parent=None):
-        MyTreeWidget.__init__(self, parent, self.create_menu, [ _('Address'), _('Label'), _('Amount'), _('Height'), _('Output point')], 1)
+        MyTreeWidget.__init__(self, parent, self.create_menu,
+                              [_('Address'),
+                               _('Label'),
+                               _('Amount'),
+                               _('Height'),
+                               _('Output point')], 1)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
     def get_name(self, x):
@@ -207,7 +220,8 @@ class ShuffleList(MyTreeWidget):
             name = self.get_name(x)
             label = self.wallet.get_label(x.get('prevout_hash'))
             amount = self.parent.format_amount(x['value'])
-            utxo_item = QTreeWidgetItem([address, label, amount, '%d'%height, name[0:10] + '...' + name[-2:]])
+            utxo_item = QTreeWidgetItem([address, label, amount, '%d'%height,
+                                         name[0:10] + '...' + name[-2:]])
             utxo_item.setFont(0, QFont(MONOSPACE_FONT))
             utxo_item.setFont(4, QFont(MONOSPACE_FONT))
             utxo_item.setData(0, Qt.UserRole, name)
@@ -224,7 +238,7 @@ class ShuffleList(MyTreeWidget):
         menu = QMenu()
         coins = filter(lambda x: self.get_name(x) in selected, self.utxos)
 
-        menu.addAction(_("Shuffle"), lambda: QMessageBox.information(self.parent,"1","2"))
+        menu.addAction(_("Shuffle"), lambda: QMessageBox.information(self.parent, "1", "2"))
         if len(selected) == 1:
             txid = selected[0].split(':')[0]
             tx = self.wallet.transactions.get(txid)
@@ -234,9 +248,9 @@ class ShuffleList(MyTreeWidget):
 
 class ServersList(QComboBox):
 
-    def __init__(self, parent = None):
+    def __init__(self, parent=None):
         QComboBox.__init__(self, parent)
-        self.servers_path ='servers.json'
+        self.servers_path = "servers.json"
         self.servers_list = None
         self.load_servers_list()
 
@@ -244,7 +258,7 @@ class ServersList(QComboBox):
         try:
             zips = __file__.find(".zip")
             if zips == -1:
-                with open(os.path.join(os.path.dirname(__file__),self.servers_path), 'r') as f:
+                with open(os.path.join(os.path.dirname(__file__), self.servers_path), 'r') as f:
                     r = json.loads(f.read())
             else:
                 r = {}
@@ -263,7 +277,7 @@ class ServersList(QComboBox):
             self.addItem(item)
 
     def get_current_server(self):
-        current_server =  self.currentText().split(' ')[0]
+        current_server = self.currentText().split(' ')[0]
         server = self.servers_list.get(current_server)
-        server['server' ] = current_server
+        server["server"] = current_server
         return server

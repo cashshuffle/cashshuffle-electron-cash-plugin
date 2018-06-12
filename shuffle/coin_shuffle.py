@@ -411,8 +411,10 @@ class Round(object):
                                       str(player))
                     raise BlameException('Wrong tx signature from player ' + str(player))
             self.coin.add_transaction_signatures(self.transaction, self.signatures)
-            self.tx = self.transaction
+            msg, status = self.coin.broadcast_transaction(self.transaction)
+            self.log_message(str(status))
             self.log_message("complete protocol")
+            self.tx = self.transaction
             self.done = True
 
     def process_blame_insufficient_funds(self, phase, reason):

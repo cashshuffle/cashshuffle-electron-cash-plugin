@@ -7,7 +7,7 @@ import ecdsa
 import threading
 import time
 from electroncash.util import InvalidPassword
-from electroncash_plugins.shuffle.client import protocolThread
+from electroncash_plugins.shuffle.client import ProtocolThread
 from electroncash_plugins.shuffle.commutator_thread import (ChannelWithPrint, Channel)
 from electroncash_plugins.shuffle.coin import Coin
 from electroncash_plugins.shuffle.crypto import Crypto
@@ -34,17 +34,20 @@ class testNetwork(object):
         else:
             return []
 
-class testThread(protocolThread):
+    def broadcast(self, tx):
+        return True, "done"
+
+class testThread(ProtocolThread):
     def __init__(self, host, port, network, amount, fee, sk, pubk, addr_new, change, logger = None, ssl = False):
         # protocolThread.__init__(self, host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = False)
-        super(testThread, self).__init__(host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = False)
+        super(testThread, self).__init__(host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = ssl)
 
     @classmethod
-    def from_private_key(cls, priv_key, host, port, network, amount, fee, addr_new, change):
+    def from_private_key(cls, priv_key, host, port, network, amount, fee, addr_new, change, ssl=False, logger = None):
         address, secret, compressed = deserialize_privkey(priv_key)
         sk = regenerate_key(secret)
         pubk = sk.get_public_key(compressed)
-        return cls(host, port, network, amount, fee, sk, pubk, addr_new, change)
+        return cls(host, port, network, amount, fee, sk, pubk, addr_new, change, ssl=ssl, logger = logger)
 
     @classmethod
     def from_sk(cls, sk, host, port, network, amount, fee, addr_new, change, compressed = True, logger = None):
@@ -278,7 +281,7 @@ class Round_wrong_outputs(Round):
 
 
 # Rewrite the client class with badass behaviour
-class bad_client_wrong_broadcast(protocolThread):
+class bad_client_wrong_broadcast(ProtocolThread):
 
     # def __init__(self, host, port, network, amount, fee, sk, pubk, addr_new, change, logger = None, ssl = False):
     #     super(bad_client_wrong_broadcast, self).__init__(host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = False)
@@ -314,12 +317,12 @@ class bad_client_wrong_broadcast(protocolThread):
             self.players,
             self.addr_new,
             self.change)
-        self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
-        self.executionThread.start()
+        self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        self.execution_thread.start()
         self.done.wait()
-        self.executionThread.join()
+        self.execution_thread.join()
 
-class bad_client_output_vector(protocolThread):
+class bad_client_output_vector(ProtocolThread):
 
     # def __init__(self, host, port, network, amount, fee, sk, pubk, addr_new, change, logger = None, ssl = False):
     #     super(bad_client_wrong_broadcast, self).__init__(host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = False)
@@ -355,12 +358,12 @@ class bad_client_output_vector(protocolThread):
             self.players,
             self.addr_new,
             self.change)
-        self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
-        self.executionThread.start()
+        self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        self.execution_thread.start()
         self.done.wait()
-        self.executionThread.join()
+        self.execution_thread.join()
 
-class bad_client_same_ciphertext(protocolThread):
+class bad_client_same_ciphertext(ProtocolThread):
 
     def not_time_to_die(f):
         def wrapper(self):
@@ -394,12 +397,12 @@ class bad_client_same_ciphertext(protocolThread):
             self.players,
             self.addr_new,
             self.change)
-        self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
-        self.executionThread.start()
+        self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        self.execution_thread.start()
         self.done.wait()
-        self.executionThread.join()
+        self.execution_thread.join()
 
-class bad_client_changig_the_output(protocolThread):
+class bad_client_changig_the_output(ProtocolThread):
 
     def not_time_to_die(f):
         def wrapper(self):
@@ -432,10 +435,10 @@ class bad_client_changig_the_output(protocolThread):
             self.players,
             self.addr_new,
             self.change)
-        self.executionThread = threading.Thread(target = self.protocol.protocol_loop)
-        self.executionThread.start()
+        self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        self.execution_thread.start()
         self.done.wait()
-        self.executionThread.join()
+        self.execution_thread.join()
 
 
 class TestProtocolCase(unittest.TestCase):
@@ -507,7 +510,7 @@ class TestProtocolCase(unittest.TestCase):
             return False
 
     def is_round_live(sefl, pThread):
-        return pThread.executionThread.is_alive() if pThread.executionThread else None
+        return pThread.execution_thread.is_alive() if pThread.execution_thread else None
 
     def get_last_logger_message(self, pThread, debug = False):
         message = None

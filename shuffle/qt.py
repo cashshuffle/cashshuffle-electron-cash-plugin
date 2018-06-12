@@ -40,52 +40,66 @@ from electroncash.plugins import BasePlugin, hook
 from electroncash.i18n import _
 from electroncash_gui.qt.util import EnterButton, Buttons, CloseButton
 from electroncash_gui.qt.util import OkButton, WindowModalDialog
+from .shuffle import InputAdressWidget, ChangeAdressWidget, OutputAdressWidget, ConsoleOutput, AmountSelect, ServersList
 
-class Plugin(BasePlugin):
+class ShuffleWidget(QWidget):
 
-    def fullname(self):
-        return 'CashShuffle'
-
-    def description(self):
-        return _("Configure CashShuffle Protocol")
-
-    def is_available(self):
-        return True
-
-    def __init__(self, parent, config, name):
-        BasePlugin.__init__(self, parent, config, name)
-        self.window = None
-        self.tab = None
-
-    @hook
-    def init_qt(self, gui):
-        for window in gui.windows:
-            self.on_new_window(window)
-
-    @hook
-    def on_new_window(self, window):
-        self.update(window)
-
-    @hook
-    def on_close_window(self, window):
-        self.update(window)
-
-    def on_close(self):
-        tabIndex= self.window.tabs.indexOf(self.tab)
-        self.window.tabs.removeTab(tabIndex)
-
-    def update(self, window):
+    def __init__(self, window):
+        QWidget.__init__(self)
         self.window = window
-        self.tab = self.create_shuffle_tab()
-        self.set_coinshuffle_addrs()
-        icon = QIcon(":icons/tab_coins.png")
-        description =  _("Shuffle")
-        name = "shuffle"
-        self.tab.tab_icon = icon
-        self.tab.tab_description = description
-        self.tab.tab_pos = len(self.window.tabs)
-        self.tab.tab_name = name
-        self.window.tabs.addTab(self.tab, icon, description.replace("&", ""))
+        self.coinshuffle_fee_constant = 1000
+        # This is for debug
+        # self.coinshuffle_fee_constant = 1000
+
+        # self.coinshuffle_amounts = [1e7, 1e6]
+        # Use this in test mode
+        self.coinshuffle_amounts = [1e6, 1e5, 1e3]
+        self.shuffle_grid = QGridLayout()
+        self.shuffle_grid.setSpacing(8)
+        self.shuffle_grid.setColumnStretch(3, 1)
+
+        self.coinshuffle_servers = ServersList()
+        self.coinshuffle_inputs = InputAdressWidget(decimal_point = self.window.get_decimal_point)
+        self.coinshuffle_changes = ChangeAdressWidget()
+        self.coinshuffle_fresh_changes = QCheckBox(_('Show only fresh change addresses'))
+        self.coinshuffle_outputs = OutputAdressWidget()
+        self.coinshuffle_amount_radio = AmountSelect(self.coinshuffle_amounts, decimal_point = self.window.get_decimal_point)
+        self.coinshuffle_fee = QLabel(_(self.window.format_amount_and_units(self.coinshuffle_fee_constant)))
+        self.coinshuffle_text_output = ConsoleOutput()
+
+        self.coinshuffle_inputs.currentIndexChanged.connect(self.check_sufficient_ammount)
+        self.coinshuffle_amount_radio.button_group.buttonClicked.connect(self.check_sufficient_ammount)
+        self.coinshuffle_fresh_changes.stateChanged.connect(lambda: self.coinshuffle_changes.update(self.window.wallet, fresh_only = self.coinshuffle_fresh_changes.isChecked()))
+
+        self.coinshuffle_start_button = EnterButton(_("Shuffle"),lambda :self.start_coinshuffle_protocol())
+        self.coinshuffle_cancel_button = EnterButton(_("Cancel"),lambda :self.cancel_coinshuffle_protocol())
+        self.coinshuffle_start_button.setEnabled(False)
+        self.coinshuffle_cancel_button.setEnabled(False)
+
+        self.shuffle_grid.addWidget(QLabel(_('Shuffle server')), 1, 0)
+        self.shuffle_grid.addWidget(QLabel(_('Shuffle input address')), 2, 0)
+        self.shuffle_grid.addWidget(QLabel(_('Shuffle change address')), 3, 0)
+        self.shuffle_grid.addWidget(QLabel(_('Shuffle output address')), 5, 0)
+        self.shuffle_grid.addWidget(QLabel(_('Amount')), 6, 0)
+        self.shuffle_grid.addWidget(QLabel(_('Fee')), 7, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_servers, 1, 1,1,-1)
+        self.shuffle_grid.addWidget(self.coinshuffle_fresh_changes, 4, 1)
+        self.shuffle_grid.addWidget(self.coinshuffle_inputs,2,1,1,-1)
+        self.shuffle_grid.addWidget(self.coinshuffle_changes,3,1,1,-1)
+        self.shuffle_grid.addWidget(self.coinshuffle_outputs,5,1,1,-1)
+        self.shuffle_grid.addWidget(self.coinshuffle_amount_radio,6,1)
+        self.shuffle_grid.addWidget(self.coinshuffle_fee ,7, 1)
+        self.shuffle_grid.addWidget(self.coinshuffle_start_button, 8, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_cancel_button, 8, 1)
+        self.shuffle_grid.addWidget(self.coinshuffle_text_output,9,0,1,-1)
+
+        vbox0 = QVBoxLayout()
+        vbox0.addLayout(self.shuffle_grid)
+        hbox = QHBoxLayout()
+        hbox.addLayout(vbox0)
+        vbox = QVBoxLayout(self)
+        vbox.addLayout(hbox)
+        vbox.addStretch(1)
 
     def set_coinshuffle_addrs(self):
         self.coinshuffle_servers.setItems()
@@ -94,6 +108,18 @@ class Plugin(BasePlugin):
         self.coinshuffle_inputs.setItmes(self.window.wallet)
         self.coinshuffle_changes.setItems(self.window.wallet)
         self.coinshuffle_outputs.setItems(self.window.wallet)
+
+    def check_sufficient_ammount(self):
+        coin_amount = self.coinshuffle_inputs.get_input_value()
+        shuffle_amount = self.coinshuffle_amount_radio.get_amount()
+        fee = self.coinshuffle_fee_constant
+        if shuffle_amount and fee:
+            if coin_amount > (fee + shuffle_amount):
+                self.coinshuffle_start_button.setEnabled(True)
+            else:
+                self.coinshuffle_start_button.setEnabled(False)
+        else:
+            self.coinshuffle_start_button.setEnabled(False)
 
     def enable_coinshuffle_settings(self):
         self.coinshuffle_servers.setEnabled(True)
@@ -111,7 +137,9 @@ class Plugin(BasePlugin):
         self.coinshuffle_outputs.setEnabled(False)
         self.coinshuffle_amount_radio.setEnabled(False)
 
+
     def process_protocol_messages(self, message):
+
         if message.startswith("Error"):
             self.pThread.join()
             self.coinshuffle_text_output.setTextColor(QColor('red'))
@@ -121,7 +149,7 @@ class Plugin(BasePlugin):
             self.pThread.done.set()
             tx = self.pThread.protocol.tx
             if tx:
-                self.window.show_transaction(tx)
+                # self.window.show_transaction(tx)
                 self.pThread.join()
             else:
                 print("No tx: " + str(tx.raw))
@@ -146,8 +174,10 @@ class Plugin(BasePlugin):
             self.coinshuffle_text_output.append(message)
             self.coinshuffle_text_output.setTextColor(QColor('black'))
 
+
     def start_coinshuffle_protocol(self):
-        from .client import protocolThread
+
+        from .client import ProtocolThread
         from electroncash.bitcoin import (regenerate_key, deserialize_privkey)
         from .shuffle import ConsoleLogger
         parent = self.window.top_level_window()
@@ -184,12 +214,12 @@ class Plugin(BasePlugin):
 
         amount = self.coinshuffle_amount_radio.get_amount()
         fee = self.coinshuffle_fee_constant
-        logger =  ConsoleLogger()
-        logger.logUpdater.connect(lambda x: self.process_protocol_messages(x))
+        self.logger = ConsoleLogger()
+        self.logger.logUpdater.connect(lambda x: self.process_protocol_messages(x))
         priv_key = self.window.wallet.export_private_key(input_address, password)
         pub_key = self.window.wallet.get_public_key(input_address)
         sk = regenerate_key(deserialize_privkey(priv_key)[1])
-        self.pThread = protocolThread(server, port, self.window.network, amount, fee, sk, pub_key, output_address, change_address, logger = logger, ssl = ssl)
+        self.pThread = ProtocolThread(server, port, self.window.network, amount, fee, sk, pub_key, output_address, change_address, logger = self.logger, ssl = ssl)
         self.pThread.start()
 
     def cancel_coinshuffle_protocol(self):
@@ -201,77 +231,51 @@ class Plugin(BasePlugin):
             self.enable_coinshuffle_settings()
 
 
-    def check_sufficient_ammount(self):
-        coin_amount = self.coinshuffle_inputs.get_input_value()
-        shuffle_amount = self.coinshuffle_amount_radio.get_amount()
-        fee = self.coinshuffle_fee_constant
-        if shuffle_amount and fee:
-            if coin_amount > (fee + shuffle_amount):
-                self.coinshuffle_start_button.setEnabled(True)
-            else:
-                self.coinshuffle_start_button.setEnabled(False)
-        else:
-            self.coinshuffle_start_button.setEnabled(False)
+class Plugin(BasePlugin):
 
-    def create_shuffle_tab(self):
-        self.coinshuffle_fee_constant = 1000
-        # This is for debug
-        # self.coinshuffle_fee_constant = 100
+    def fullname(self):
+        return 'CashShuffle'
 
-        from .shuffle import (InputAdressWidget, ChangeAdressWidget, OutputAdressWidget,
-                            ConsoleOutput, AmountSelect, ServersList)
+    def description(self):
+        return _("Configure CashShuffle Protocol")
 
-        self.coinshuffle_amounts = [1e7, 1e6]
-        # Use this in test mode
-        # self.coinshuffle_amounts = [1e4, 1e3, 3e3]
-        self.shuffle_grid = grid = QGridLayout()
-        grid.setSpacing(8)
-        grid.setColumnStretch(3, 1)
+    def is_available(self):
+        return True
 
-        self.coinshuffle_servers = ServersList()
-        self.coinshuffle_inputs = InputAdressWidget(decimal_point = self.window.get_decimal_point)
-        self.coinshuffle_changes = ChangeAdressWidget()
-        self.coinshuffle_fresh_changes = QCheckBox(_('Show only fresh change addresses'))
-        self.coinshuffle_outputs = OutputAdressWidget()
-        self.coinshuffle_amount_radio = AmountSelect(self.coinshuffle_amounts, decimal_point = self.window.get_decimal_point)
-        self.coinshuffle_fee = QLabel(_(self.window.format_amount_and_units(self.coinshuffle_fee_constant)))
-        self.coinshuffle_text_output = ConsoleOutput()
+    def __init__(self, parent, config, name):
+        BasePlugin.__init__(self, parent, config, name)
+        self.window = None
+        self.tab = None
 
-        self.coinshuffle_inputs.currentIndexChanged.connect(self.check_sufficient_ammount)
-        self.coinshuffle_amount_radio.button_group.buttonClicked.connect(self.check_sufficient_ammount)
-        self.coinshuffle_fresh_changes.stateChanged.connect(lambda: self.coinshuffle_changes.update(self.window.wallet, fresh_only = self.coinshuffle_fresh_changes.isChecked()))
+    @hook
+    def init_qt(self, gui):
+        for window in gui.windows:
+            self.on_new_window(window)
 
-        self.coinshuffle_start_button = EnterButton(_("Shuffle"),lambda :self.start_coinshuffle_protocol())
-        self.coinshuffle_cancel_button = EnterButton(_("Cancel"),lambda :self.cancel_coinshuffle_protocol())
-        self.coinshuffle_start_button.setEnabled(False)
-        self.coinshuffle_cancel_button.setEnabled(False)
+    @hook
+    def on_new_window(self, window):
+        self.update(window)
 
-        grid.addWidget(QLabel(_('Shuffle server')), 1, 0)
-        grid.addWidget(QLabel(_('Shuffle input address')), 2, 0)
-        grid.addWidget(QLabel(_('Shuffle change address')), 3, 0)
-        grid.addWidget(QLabel(_('Shuffle output address')), 5, 0)
-        grid.addWidget(QLabel(_('Amount')), 6, 0)
-        grid.addWidget(QLabel(_('Fee')), 7, 0)
-        grid.addWidget(self.coinshuffle_servers, 1, 1,1,-1)
-        grid.addWidget(self.coinshuffle_fresh_changes, 4, 1)
-        grid.addWidget(self.coinshuffle_inputs,2,1,1,-1)
-        grid.addWidget(self.coinshuffle_changes,3,1,1,-1)
-        grid.addWidget(self.coinshuffle_outputs,5,1,1,-1)
-        grid.addWidget(self.coinshuffle_amount_radio,6,1)
-        grid.addWidget(self.coinshuffle_fee ,7, 1)
-        grid.addWidget(self.coinshuffle_start_button, 8, 0)
-        grid.addWidget(self.coinshuffle_cancel_button, 8, 1)
-        grid.addWidget(self.coinshuffle_text_output,9,0,1,-1)
+    @hook
+    def on_close_window(self, window):
+        self.update(window)
 
-        vbox0 = QVBoxLayout()
-        vbox0.addLayout(grid)
-        hbox = QHBoxLayout()
-        hbox.addLayout(vbox0)
-        w = QWidget()
-        vbox = QVBoxLayout(w)
-        vbox.addLayout(hbox)
-        vbox.addStretch(1)
-        return w
+    def on_close(self):
+        tabIndex= self.window.tabs.indexOf(self.tab)
+        self.window.tabs.removeTab(tabIndex)
+
+    def update(self, window):
+        self.window = window
+        self.tab = ShuffleWidget(window)
+        self.tab.set_coinshuffle_addrs()
+        icon = QIcon(":icons/tab_coins.png")
+        description =  _("Shuffle")
+        name = "shuffle"
+        self.tab.tab_icon = icon
+        self.tab.tab_description = description
+        self.tab.tab_pos = len(self.window.tabs)
+        self.tab.tab_name = name
+        self.window.tabs.addTab(self.tab, icon, description.replace("&", ""))
 
     def requires_settings(self):
         return False

@@ -31,3 +31,5 @@ class TestProtocol(TestProtocolCase):
         tx = protocolThreads[1].protocol.tx.raw
         for pThread in protocolThreads[2:]:
             self.assertEqual(tx, pThread.protocol.tx.raw)
+        print(protocolThreads[-1].protocol.tx.raw)
+        print(protocolThreads[-1].protocol.change_addresses)    
