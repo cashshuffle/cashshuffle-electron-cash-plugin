@@ -1,5 +1,6 @@
 from time import sleep
 import argparse
+import requests
 from electroncash.network import Network, SimpleConfig
 from electroncash.bitcoin import deserialize_privkey, regenerate_key
 from electroncash.networks import NetworkConstants
@@ -31,13 +32,14 @@ class SimpleLogger(object):
 parser = argparse.ArgumentParser(description="CashShuffle bot")
 parser.add_argument("--testnet", action="store_true", dest="testnet", default=False, help="Use Testnet")
 parser.add_argument("-P", "--port", help="cashshuffle server port", type=int, required=True)
+parser.add_argument("-I", "--stat-port", help="cashshuffle statistics server port", type=int, required=True)
 parser.add_argument("-S", "--server", help="cashshuffle server port", type=str, required=True)
 parser.add_argument("-A", "--amount", help="amount to shuffle", type=int, choices=[1e6, 1e5, 1e3], default=1e3)
 parser.add_argument("-F", "--fee", help="fee value", type=int, default=1000)
+parser.add_argument("-L", "--limit", help="minimal number of players to enter the pool", type=int, default=1)
 parser.add_argument("-K", "--key", help="private key of input address", type=str, required=True)
 parser.add_argument("-N", "--new-address", help="output address", type=str, required=True)
 parser.add_argument("-C", "--change", help="change address", type=str, required=True)
-
 
 args = parser.parse_args()
 # Get network
@@ -50,6 +52,7 @@ network.start()
 # setup server
 port = args.port
 host = args.server
+stat_port = args.stat_port
 # setup amounts (in satoshis)
 amount = args.amount
 fee = args.fee
@@ -60,10 +63,22 @@ sk, pubk = keys_from_priv(priv_key)
 new_addr = args.new_address
 change = args.change
 #Start protocol thread
-logger = SimpleLogger()
-pThread = ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger)
-logger.pThread = pThread
-pThread.start()
-# sleep()
-while not is_protocol_done(pThread):
-    sleep(1)
+stat_endpoint = "http://{}:{}/stats".format(host, stat_port)
+res = requests.get(stat_endpoint)
+pools = res.json().get("pools", [])
+if len(pools) > 0:
+    members = [pool.get("members", 0) for pool in pools
+               if not pool.get("fool", False)
+               and pool.get("amount") == amount][0]
+    if members >= args.limit:
+        logger = SimpleLogger()
+        pThread = ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger)
+        logger.pThread = pThread
+        pThread.start()
+        # sleep()
+        while not is_protocol_done(pThread):
+            sleep(1)
+    else:
+        logger.send("Not enough members")
+else:
+    logger.send("Noone in the pools")
