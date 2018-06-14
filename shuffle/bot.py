@@ -1,6 +1,7 @@
 from time import sleep
 import argparse
 import requests
+import schedule
 from electroncash.network import Network, SimpleConfig
 from electroncash.bitcoin import deserialize_privkey, regenerate_key
 from electroncash.networks import NetworkConstants
@@ -28,6 +29,27 @@ class SimpleLogger(object):
         if message.startswith("Error"):
             self.pThread.done.set()
 
+def job():
+    logger = SimpleLogger()
+    res = requests.get(stat_endpoint)
+    pools = res.json().get("pools", [])
+    if len(pools) > 0:
+        members = [pool.get("members", 0) for pool in pools
+                   if not pool.get("fool", False)
+                   and pool.get("amount") == amount][0]
+        if members >= args.limit:
+            network.start()
+            pThread = ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger)
+            logger.pThread = pThread
+            pThread.start()
+            while not is_protocol_done(pThread):
+                sleep(1)
+            network.stop()
+        else:
+            logger.send("Not enough members")
+    else:
+        logger.send("Noone in the pools")
+
 #parser
 parser = argparse.ArgumentParser(description="CashShuffle bot")
 parser.add_argument("--testnet", action="store_true", dest="testnet", default=False, help="Use Testnet")
@@ -40,6 +62,9 @@ parser.add_argument("-L", "--limit", help="minimal number of players to enter th
 parser.add_argument("-K", "--key", help="private key of input address", type=str, required=True)
 parser.add_argument("-N", "--new-address", help="output address", type=str, required=True)
 parser.add_argument("-C", "--change", help="change address", type=str, required=True)
+parser.add_argument("-T", "--period", help="period for checking the server in minutes", type=int, default=10)
+
+
 
 args = parser.parse_args()
 # Get network
@@ -48,7 +73,6 @@ if args.testnet:
     NetworkConstants.set_testnet()
     config = SimpleConfig({'server':"bch0.kister.net:51002:s"})
 network = Network(config)
-network.start()
 # setup server
 port = args.port
 host = args.server
@@ -64,21 +88,9 @@ new_addr = args.new_address
 change = args.change
 #Start protocol thread
 stat_endpoint = "http://{}:{}/stats".format(host, stat_port)
-res = requests.get(stat_endpoint)
-pools = res.json().get("pools", [])
-if len(pools) > 0:
-    members = [pool.get("members", 0) for pool in pools
-               if not pool.get("fool", False)
-               and pool.get("amount") == amount][0]
-    if members >= args.limit:
-        logger = SimpleLogger()
-        pThread = ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger)
-        logger.pThread = pThread
-        pThread.start()
-        # sleep()
-        while not is_protocol_done(pThread):
-            sleep(1)
-    else:
-        logger.send("Not enough members")
-else:
-    logger.send("Noone in the pools")
+
+schedule.every(args.period).minutes.do(job)
+
+while True:
+    schedule.run_pending()
+    sleep(60)
