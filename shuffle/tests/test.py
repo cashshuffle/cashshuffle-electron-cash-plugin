@@ -91,10 +91,9 @@ class Round_wrong_broadcast(Round):
     """
 
     def broadcast_new_key(self):
-        # fake_crypto = Crypto()
+        self.phase = 'Announcement'
         self.crypto.generate_key_pair()
         self.crypto.generate_fake_key_pair()
-        # fake_crypto.generate_key_pair()
         victim_key = random.choice([self.players[player] for player in self.players if not self.players[player] == self.vk])
         print('PLAYER ' + str(self.me) + " IS A CHEATER")
         print('CHEATER KEY IS ' + str(self.vk) )
@@ -106,7 +105,6 @@ class Round_wrong_broadcast(Round):
             if self.players[player] is not victim_key:
                 self.messages.add_encryption_key(self.crypto.export_public_key(), self.change)
             else:
-                # self.messages.add_encryption_key(fake_crypto.export_public_key(), self.change)
                 self.messages.add_encryption_key(self.crypto.export_fake_public_key(), self.change)
             self.send_message(destination = self.players[player])
 
