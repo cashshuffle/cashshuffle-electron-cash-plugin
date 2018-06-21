@@ -28,6 +28,14 @@ class SimpleLogger(object):
         print(message)
         if message.startswith("Error"):
             self.pThread.done.set()
+        elif message.startswith("Blame"):
+            if "insufficient" in message:
+                pass
+            elif "wrong hash" in message:
+                pass
+            else:
+                self.pThread.done.set()
+
 
 def job():
     logger = SimpleLogger()
@@ -38,14 +46,12 @@ def job():
                    if not pool.get("fool", False)
                    and pool.get("amount") == amount][0]
         if members >= args.limit:
-            # network.start()
             sleep(5)
             pThread = ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger)
             logger.pThread = pThread
             pThread.start()
             while not is_protocol_done(pThread):
                 sleep(1)
-            # network.stop()
             pThread.join()
             pThread = None
         else:
@@ -67,8 +73,6 @@ parser.add_argument("-N", "--new-address", help="output address", type=str, requ
 parser.add_argument("-C", "--change", help="change address", type=str, required=True)
 parser.add_argument("-T", "--period", help="period for checking the server in minutes", type=int, default=10)
 
-
-
 args = parser.parse_args()
 # Get network
 config = SimpleConfig({})
@@ -87,7 +91,6 @@ fee = args.fee
 # privkey
 priv_key = args.key
 sk, pubk = keys_from_priv(priv_key)
-print(pubk)
 # new address and change
 new_addr = args.new_address
 change = args.change
@@ -99,4 +102,4 @@ schedule.every(args.period).minutes.do(job)
 
 while True:
     schedule.run_pending()
-    sleep(60)
+    sleep(30)

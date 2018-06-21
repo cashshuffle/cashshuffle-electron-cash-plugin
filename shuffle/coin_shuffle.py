@@ -35,10 +35,10 @@ class Round(object):
                 self.me = {players[player] : player for player in players}[self.vk]
             else:
                 self.logchan('Error: publick key is not in the players list')
-                raise ValueError('My public key is not in players list')
+                # raise ValueError('My public key is not in players list')
         else:
             self.logchan.send('Error: same publick keys appears in the pool!')
-            raise ValueError('Same public keys appears!')
+            # raise ValueError('Same public keys appears!')
         self.encryption_keys = dict()
         self.new_addresses = set()
         self.addr_new = addr_new
@@ -189,10 +189,10 @@ class Round(object):
                 self.number_of_players = len(self.players)
             else:
                 self.logchan.send('Error: not enough players with sufficent funds')
-                raise Exception('Error: not enough players with sufficent funds')
+                # raise Exception('Error: not enough players with sufficent funds')
             if self.vk in offenders:
                 self.logchan.send('Error: players funds is not enough')
-                raise Exception('Error: players funds is not enough')
+                # raise Exception('Error: players funds is not enough')
             return False
 
     def broadcast_new_key(self):
