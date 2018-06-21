@@ -38,13 +38,16 @@ def job():
                    if not pool.get("fool", False)
                    and pool.get("amount") == amount][0]
         if members >= args.limit:
-            network.start()
+            # network.start()
+            sleep(5)
             pThread = ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger)
             logger.pThread = pThread
             pThread.start()
             while not is_protocol_done(pThread):
                 sleep(1)
-            network.stop()
+            # network.stop()
+            pThread.join()
+            pThread = None
         else:
             logger.send("Not enough members")
     else:
@@ -73,6 +76,7 @@ if args.testnet:
     NetworkConstants.set_testnet()
     config = SimpleConfig({'server':"bch0.kister.net:51002:s"})
 network = Network(config)
+network.start()
 # setup server
 port = args.port
 host = args.server
@@ -83,9 +87,11 @@ fee = args.fee
 # privkey
 priv_key = args.key
 sk, pubk = keys_from_priv(priv_key)
+print(pubk)
 # new address and change
 new_addr = args.new_address
 change = args.change
+from electroncash.address import Address
 #Start protocol thread
 stat_endpoint = "http://{}:{}/stats".format(host, stat_port)
 

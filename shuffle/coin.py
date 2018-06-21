@@ -64,7 +64,7 @@ class Coin(object):
         tx_changes = [(TYPE_ADDRESS,
                        Address.from_string(changes[verification_key]),
                        int(coins[verification_key]['value'] - amount - fee))
-                      for verification_key in changes
+                      for verification_key in sorted(changes)
                       if Address.is_valid(changes[verification_key])]
         transaction.add_outputs(tx_changes)
         return transaction
