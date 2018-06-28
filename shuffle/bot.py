@@ -25,6 +25,7 @@ def parse_args():
     parser.add_argument("-W", "--wallet", help="wallet", type=str, required=True)
     parser.add_argument("--password", help="wallet password", type=str, default ="")
     parser.add_argument("-T", "--period", help="period for checking the server in minutes", type=int, default=10)
+    # test_params = "--testnet -P 33333 -S localhost -I 5000 -W plugins/shuffle/wallet/test_wallet --password testwallet -L 2".split()
     return parser.parse_args()
 
 def keys_from_priv(priv_key):
@@ -107,6 +108,8 @@ def job():
         while not done:
             sleep(1)
             done = all([is_protocol_done(pThread) for pThread in pThreads])
+        for pThread in pThreads:
+            pThread.join()    
     else:
         basic_logger.send("Nobody in the pools")
 
@@ -143,5 +146,6 @@ schedule.every(args.period).minutes.do(job)
 while True:
     schedule.run_pending()
     sleep(30)
+## Delete later
 network.stop()
 wallet.stop_threads()
