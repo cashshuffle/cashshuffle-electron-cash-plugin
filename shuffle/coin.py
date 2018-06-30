@@ -20,10 +20,15 @@ class Coin(object):
         """
         System should check for sufficient funds here.
         amount here is satoshis
+
+        if network object raise exception then this function returns None
         """
-        unspent_list = self.network.synchronous_get(('blockchain.address.listunspent', [address]))
-        values = [uxto['value'] for uxto in unspent_list]
-        return len([i for i in values if i > amount]) > 0
+        try:
+            unspent_list = self.network.synchronous_get(('blockchain.address.listunspent', [address]))
+            values = [uxto['value'] for uxto in unspent_list]
+            return len([i for i in values if i > amount]) > 0
+        except:
+            return None
 
     def address(self, verification_key):
         "get address from public key"
@@ -37,6 +42,7 @@ class Coin(object):
         protocol doesn't specify which coin form address is used for transaction.
         It is supposed to have single output for address to be shuffled
         """
+
         coins = self.network.synchronous_get(('blockchain.address.listunspent', [address]))
         coins = [coin for coin in coins if coin['value'] >= amount]
         if coins:
@@ -46,8 +52,12 @@ class Coin(object):
 
     def make_unsigned_transaction(self, amount, fee, inputs, outputs, changes):
         "make unsigned transaction"
-        coins = {verification_key : self.get_first_sufficient_utxo(inputs[verification_key], amount)
-                 for verification_key in inputs}
+        coins = {}
+        try:
+            coins = {verification_key : self.get_first_sufficient_utxo(inputs[verification_key], amount)
+                     for verification_key in inputs}
+        except:
+            return None
         for verification_key in coins:
             coins[verification_key]['type'] = 'p2pkh'
             coins[verification_key]['address'] = Address.from_string(self.address(verification_key))
@@ -117,7 +127,10 @@ class Coin(object):
             return False
 
     def broadcast_transaction(self, transaction):
-        return self.network.broadcast(transaction)
+        try:
+            return self.network.broadcast(transaction)
+        except:
+            return None, None
 
     def verify_signature(self, signature, message, verification_key):
         "This method verifies signature of message"

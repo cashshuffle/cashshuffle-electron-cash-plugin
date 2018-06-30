@@ -167,8 +167,15 @@ class Round(object):
         offenders = list()
         for player in self.players:
             address = self.coin.address(self.players[player])
-            if not self.coin.sufficient_funds(address, self.amount + self.fee):
+            is_funds_sufficient = self.coin.sufficient_funds(address, self.amount + self.fee)
+            if is_funds_sufficient == None:
+                self.logchan.send("Error: blockchain network fault!")
+                self.done = True
+                return None
+            # if not self.coin.sufficient_funds(address, self.amount + self.fee):
+            elif not self.coin.sufficient_funds(address, self.amount + self.fee):
                 offenders.append(self.players[player])
+
         if len(offenders) == 0:
             self.log_message("finds sufficient funds")
             return True
@@ -385,6 +392,10 @@ class Round(object):
                                                                    inputs,
                                                                    self.new_addresses,
                                                                    self.change_addresses)
+            if self.transaction == None:
+                self.logchan.send("Error: blockchain network fault!")
+                self.done = True
+                return
             signature = self.coin.get_transaction_signature(self.transaction, self.sk, self.vk)
             self.messages.clear_packets()
             self.messages.add_signature(signature)
@@ -412,9 +423,12 @@ class Round(object):
                     raise BlameException('Wrong tx signature from player ' + str(player))
             self.coin.add_transaction_signatures(self.transaction, self.signatures)
             msg, status = self.coin.broadcast_transaction(self.transaction)
-            self.log_message(str(status))
-            self.log_message("complete protocol")
-            self.tx = self.transaction
+            if msg == None and status == None:
+                self.logchan.send("Error: blockchain network fault!")
+            else:
+                self.log_message(str(status))
+                self.log_message("complete protocol")
+                self.tx = self.transaction
             self.done = True
 
     def process_blame_insufficient_funds(self, phase, reason):
