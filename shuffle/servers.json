@@ -1,4 +1,9 @@
 {
+  "electrum.imaginary.cash":
+  {
+    "port" : 8080,
+    "ssl"   : true
+  },
    "cashshuffle.checksum0.com":
    {
      "port" : 8080,
