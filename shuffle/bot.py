@@ -1,5 +1,5 @@
 import sys
-from time import sleep
+from time import sleep, time
 import argparse
 import requests
 import schedule
@@ -58,19 +58,24 @@ class SimpleLogger(object):
                 self.pThread.done.set()
 
 def job():
+    job_start_time = time()
     pools = []
     try:
-        res = requests.get(stat_endpoint)
+        res = requests.get(stat_endpoint, verify=False)
         pools = res.json().get("pools", [])
     except:
-        basic_logger.send("Stat server not respond")
+        basic_logger.send("[CashShuffle Bot] Stat server not respond")
         return
     if len(pools) > 0:
         members = [pool for pool in pools
-                   if not pool.get("fool", False) and
+                   if not pool.get("full", False) and
                    pool.get("members", 0) >= args.limit]
         utxos = wallet.get_utxos(exclude_frozen=True, confirmed_only=True)
         fresh_outputs = wallet.get_unused_addresses()
+        if len(members) == 0:
+            basic_logger.send("[CashShuffle] No pools sutisfiying the requirments")
+        else:
+            basic_logger.send("[CashShuffle] Trying to support {} pools".format(len(members)))
         for member in members:
             amount = member['amount'] + fee
             good_utxos = [utxo for utxo in utxos if utxo['value'] > amount]
@@ -86,8 +91,8 @@ def job():
                         utxos.remove(good_utxo)
                         break
                 except Exception as e:
-                    basic_logger.send(e)
-                    basic_logger.send("Network problems")
+                    basic_logger.send("[CashShuffle Bot] {}".format(e))
+                    basic_logger.send("[CashShuffle Bot] Network problems")
         # Define Protocol threads
         pThreads = []
         for member in members:
@@ -108,10 +113,13 @@ def job():
         while not done:
             sleep(1)
             done = all([is_protocol_done(pThread) for pThread in pThreads])
+            if (time() - job_start_time) > 1000:
+                "Protocol execution Time Out"
+                done = True
         for pThread in pThreads:
-            pThread.join()    
+            pThread.join()
     else:
-        basic_logger.send("Nobody in the pools")
+        basic_logger.send("[CashShuffle Bot] Nobody in the pools")
 
 basic_logger = SimpleLogger()
 args = parse_args()
@@ -139,7 +147,8 @@ host = args.server
 stat_port = args.stat_port
 ssl = args.ssl
 fee = args.fee
-stat_endpoint = "http://{}:{}/stats".format(host, stat_port)
+secured = ("s" if ssl else "")
+stat_endpoint = "http{}://{}:{}/stats".format(secured, host, stat_port)
 
 schedule.every(args.period).minutes.do(job)
 
