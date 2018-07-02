@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument("-S", "--server", help="cashshuffle server port", type=str, required=True)
     parser.add_argument("-F", "--fee", help="fee value", type=int, default=1000)
     parser.add_argument("-L", "--limit", help="minimal number of players to enter the pool", type=int, default=1)
+    parser.add_argument("-M", "--maximum-per-pool", help="maximal number of players to support the pool", type=int, default=1)
     parser.add_argument("-W", "--wallet", help="wallet", type=str, required=True)
     parser.add_argument("--password", help="wallet password", type=str, default ="")
     parser.add_argument("-T", "--period", help="period for checking the server in minutes", type=int, default=10)
@@ -46,7 +47,7 @@ class SimpleLogger(object):
         self.pThread = None
 
     def send(self, message):
-        print(message)
+        print("[CashShuffle Bot] {}".format(message))
         if message.startswith("Error"):
             self.pThread.done.set()
         elif message.startswith("Blame"):
@@ -60,23 +61,31 @@ class SimpleLogger(object):
 def job():
     job_start_time = time()
     pools = []
+    pool_size = None
     try:
         res = requests.get(stat_endpoint, verify=False)
         pools = res.json().get("pools", [])
+        pool_size = res.json().get("PoolSize", None)
     except:
         basic_logger.send("[CashShuffle Bot] Stat server not respond")
         return
     if len(pools) > 0:
+        # Select not full pools with members more then limit
         members = [pool for pool in pools
                    if not pool.get("full", False) and
                    pool.get("members", 0) >= args.limit]
+        # Select unspent outputs in the wallet
         utxos = wallet.get_utxos(exclude_frozen=True, confirmed_only=True)
+        # Select fresh inputs
         fresh_outputs = wallet.get_unused_addresses()
         if len(members) == 0:
             basic_logger.send("[CashShuffle] No pools sutisfiying the requirments")
         else:
             basic_logger.send("[CashShuffle] Trying to support {} pools".format(len(members)))
         for member in members:
+            number_of_players = member['members']
+            threshold = min(number_of_players + args.maximum_per_pool, pool_size)
+            member.update({"addresses" : []})
             amount = member['amount'] + fee
             good_utxos = [utxo for utxo in utxos if utxo['value'] > amount]
             for good_utxo in good_utxos:
@@ -84,28 +93,34 @@ def job():
                 try:
                     first_utxo = coin.get_first_sufficient_utxo(addr, amount)
                     if first_utxo:
-                        member.update({"input_address": good_utxo['address']})
-                        member.update({"change_address": addr})
-                        member.update({"shuffle_address": Address.to_string(fresh_outputs[0], Address.FMT_LEGACY)})
+                        address = {}
+                        address.update({"input_address": good_utxo['address']})
+                        address.update({"change_address": addr})
+                        address.update({"shuffle_address": Address.to_string(fresh_outputs[0], Address.FMT_LEGACY)})
+                        member['addresses'].append(address)
                         del fresh_outputs[0]
                         utxos.remove(good_utxo)
-                        break
+                        number_of_players += 1
+                        if number_of_players == threshold:
+                            break
                 except Exception as e:
                     basic_logger.send("[CashShuffle Bot] {}".format(e))
                     basic_logger.send("[CashShuffle Bot] Network problems")
+        print(members)
         # Define Protocol threads
         pThreads = []
         for member in members:
             amount = member["amount"]
-            if member.get("input_address", None):
-                priv_key = wallet.export_private_key(member["input_address"], password)
-                sk, pubk = keys_from_priv(priv_key)
-                new_addr = member["shuffle_address"]
-                change = member["change_address"]
-                logger = SimpleLogger()
-                pThread = (ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger, ssl=ssl))
-                logger.pThread = pThread
-                pThreads.append(pThread)
+            if member.get("addresses", None):
+                for address in member.get("addresses"):
+                    priv_key = wallet.export_private_key(address["input_address"], password)
+                    sk, pubk = keys_from_priv(priv_key)
+                    new_addr = address["shuffle_address"]
+                    change = address["change_address"]
+                    logger = SimpleLogger()
+                    pThread = (ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger, ssl=ssl))
+                    logger.pThread = pThread
+                    pThreads.append(pThread)
         # start Threads
         for pThread in pThreads:
             pThread.start()
