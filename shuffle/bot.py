@@ -75,7 +75,7 @@ def job():
                    if not pool.get("full", False) and
                    pool.get("members", 0) >= args.limit]
         # Select unspent outputs in the wallet
-        utxos = wallet.get_utxos(exclude_frozen=True, confirmed_only=True)
+        utxos = wallet.get_utxos(exclude_frozen=True, confirmed_only=False)
         # Select fresh inputs
         fresh_outputs = wallet.get_unused_addresses()
         if len(members) == 0:
@@ -106,7 +106,6 @@ def job():
                 except Exception as e:
                     basic_logger.send("[CashShuffle Bot] {}".format(e))
                     basic_logger.send("[CashShuffle Bot] Network problems")
-        print(members)
         # Define Protocol threads
         pThreads = []
         for member in members:
@@ -169,7 +168,7 @@ schedule.every(args.period).minutes.do(job)
 
 while True:
     schedule.run_pending()
-    sleep(30)
+    sleep(10)
 ## Delete later
 network.stop()
 wallet.stop_threads()
