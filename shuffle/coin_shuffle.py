@@ -35,10 +35,12 @@ class Round(object):
                 self.me = {players[player] : player for player in players}[self.vk]
             else:
                 self.logchan('Error: publick key is not in the players list')
-                # raise ValueError('My public key is not in players list')
+                self.done = True
+                return
         else:
             self.logchan.send('Error: same publick keys appears in the pool!')
-            # raise ValueError('Same public keys appears!')
+            self.done = True
+            return
         self.encryption_keys = dict()
         self.new_addresses = set()
         self.addr_new = addr_new
@@ -107,7 +109,7 @@ class Round(object):
                 self.messages.blame_invalid_signature(self.players[player])
                 self.send_message()
                 self.logchan.send('Blame: player ' + player + ' message with wrong signature!')
-                raise BlameException('Player ' + player + ' message with wrong signature!')
+                # raise BlameException('Player ' + player + ' message with wrong signature!')
 
     def ban_the_liar(self, accused):
         """Send message to server for banning the player which verification key is accused"""
@@ -196,10 +198,13 @@ class Round(object):
                 self.number_of_players = len(self.players)
             else:
                 self.logchan.send('Error: not enough players with sufficent funds')
-                # raise Exception('Error: not enough players with sufficent funds')
+                self.done = True
+                return False
             if self.vk in offenders:
+
                 self.logchan.send('Error: players funds is not enough')
-                # raise Exception('Error: players funds is not enough')
+                self.done = True
+                return False
             return False
 
     def broadcast_new_key(self):
@@ -247,10 +252,13 @@ class Round(object):
         """
         if self.messages.get_blame_reason() != reason:
             self.logchan.send("Blame: different blame reasons from players")
-            raise BlameException("Blame: different blame reasons from players")
+            self.done = True
+            return
+            # raise BlameException("Blame: different blame reasons from players")
         elif self.messages.get_accused_key in self.players.values():
             self.logchan.send("Blame: different blame players from players")
-            raise BlameException("Blame: different blame players from players")
+            self.done = True
+            # raise BlameException("Blame: different blame players from players")
 
     def check_for_shuffling(self):
         """Replays the shuffling phase to identify the cheater"""
@@ -420,7 +428,9 @@ class Round(object):
                     self.send_message()
                     self.logchan.send('Blame: wrong transaction signature from player ' +
                                       str(player))
-                    raise BlameException('Wrong tx signature from player ' + str(player))
+                    self.done = True
+                    return
+                    # raise BlameException('Wrong tx signature from player ' + str(player))
             self.coin.add_transaction_signatures(self.transaction, self.signatures)
             msg, status = self.coin.broadcast_transaction(self.transaction)
             if msg == None and status == None:
@@ -519,7 +529,10 @@ class Round(object):
                 self.send_message()
                 self.inbox[phase_blame] = {}
             else:
-                raise 'Blame!'
+                self.logchan.send("Erorr: different hashes appears")
+                self.done = True
+                return
+                # raise 'Blame!'
 
     def process_blame_shuffle_and_equivocation_failure(self, phase, reason):
         """Perfoms the Blame phase in the case of shuffle and equivocation failure"""

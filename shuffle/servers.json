@@ -1,25 +1,7 @@
 {
-  "electrum.imaginary.cash":
+  "shuffle.imaginary.cash":
   {
     "port" : 8080,
     "ssl"   : true
-  },
-   "cashshuffle.checksum0.com":
-   {
-     "port" : 8080,
-     "ssl"  : true
-   },
-    "cbofdrwfez4b7j7d.onion":
-    {
-       "port" : 80,
-       "ssl"  : false
-     },
-    "cashmixer.org":{
-       "port": 8080,
-       "ssl" : true
-    },
-    "localhost":{
-       "port": 33333,
-       "ssl" : false
-    }
+  }
 }

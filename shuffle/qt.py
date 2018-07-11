@@ -47,13 +47,16 @@ class ShuffleWidget(QWidget):
     def __init__(self, window):
         QWidget.__init__(self)
         self.window = window
+        self.timer = QtCore.QTimer()
+        self.waiting_timeout = 180
+        self.timer.timeout.connect(self.tick)
         self.coinshuffle_fee_constant = 1000
         # This is for debug
         # self.coinshuffle_fee_constant = 1000
 
         # self.coinshuffle_amounts = [1e7, 1e6]
         # Use this in test mode
-        self.coinshuffle_amounts = [1e6, 1e5, 1e3]
+        self.coinshuffle_amounts = [1e5, 1e6]
         self.shuffle_grid = QGridLayout()
         self.shuffle_grid.setSpacing(8)
         self.shuffle_grid.setColumnStretch(3, 1)
@@ -66,6 +69,7 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_amount_radio = AmountSelect(self.coinshuffle_amounts, decimal_point = self.window.get_decimal_point)
         self.coinshuffle_fee = QLabel(_(self.window.format_amount_and_units(self.coinshuffle_fee_constant)))
         self.coinshuffle_text_output = ConsoleOutput()
+        self.coinshuffle_timer_output = QLabel()
 
         self.coinshuffle_inputs.currentIndexChanged.connect(self.check_sufficient_ammount)
         self.coinshuffle_amount_radio.button_group.buttonClicked.connect(self.check_sufficient_ammount)
@@ -91,6 +95,7 @@ class ShuffleWidget(QWidget):
         self.shuffle_grid.addWidget(self.coinshuffle_fee ,7, 1)
         self.shuffle_grid.addWidget(self.coinshuffle_start_button, 8, 0)
         self.shuffle_grid.addWidget(self.coinshuffle_cancel_button, 8, 1)
+        self.shuffle_grid.addWidget(self.coinshuffle_timer_output, 8, 2)
         self.shuffle_grid.addWidget(self.coinshuffle_text_output,9,0,1,-1)
 
         vbox0 = QVBoxLayout()
@@ -100,6 +105,13 @@ class ShuffleWidget(QWidget):
         vbox = QVBoxLayout(self)
         vbox.addLayout(hbox)
         vbox.addStretch(1)
+
+    def tick(self):
+        self.waiting_timeout -= 1
+        if self.waiting_timeout > 0:
+            self.coinshuffle_timer_output.setText("{} s to break".format(self.waiting_timeout))
+        else:
+            self.logger.send("Error: timeout waiting for another players")
 
     def set_coinshuffle_addrs(self):
         self.coinshuffle_servers.setItems()
@@ -128,6 +140,8 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_changes.setEnabled(True)
         self.coinshuffle_outputs.setEnabled(True)
         self.coinshuffle_amount_radio.setEnabled(True)
+        self.waiting_timeout = 180
+        self.coinshuffle_timer_output.setText("")
 
     def disable_coinshuffle_settings(self):
         self.coinshuffle_servers.setEnabled(False)
@@ -145,6 +159,7 @@ class ShuffleWidget(QWidget):
             self.coinshuffle_text_output.setTextColor(QColor('red'))
             self.coinshuffle_text_output.append(message)
             self.enable_coinshuffle_settings()
+            self.timer.stop()
         elif message[-17:] == "complete protocol":
             self.pThread.done.set()
             tx = self.pThread.protocol.tx
@@ -157,6 +172,10 @@ class ShuffleWidget(QWidget):
             self.coinshuffle_cancel_button.setEnabled(False)
             self.coinshuffle_inputs.update(self.window.wallet)
             self.coinshuffle_outputs.update(self.window.wallet)
+        elif "begins" in message:
+            self.timer.stop()
+            self.coinshuffle_timer_output.setText("")
+            self.waiting_timeout = 180
         else:
             header = message[:6]
             if header == 'Player':
@@ -221,6 +240,7 @@ class ShuffleWidget(QWidget):
         sk = regenerate_key(deserialize_privkey(priv_key)[1])
         self.pThread = ProtocolThread(server, port, self.window.network, amount, fee, sk, pub_key, output_address, change_address, logger = self.logger, ssl = ssl)
         self.pThread.start()
+        self.timer.start(1000)
 
     def cancel_coinshuffle_protocol(self):
         if self.pThread.is_alive():
@@ -228,6 +248,7 @@ class ShuffleWidget(QWidget):
             while self.pThread.is_alive():
                 time.sleep(0.1)
             self.coinshuffle_cancel_button.setEnabled(False)
+            self.timer.stop()
             self.enable_coinshuffle_settings()
 
 

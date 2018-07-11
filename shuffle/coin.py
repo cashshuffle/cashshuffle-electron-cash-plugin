@@ -54,7 +54,7 @@ class Coin(object):
         "make unsigned transaction"
         coins = {}
         try:
-            coins = {verification_key : self.get_first_sufficient_utxo(inputs[verification_key], amount)
+            coins = {verification_key : self.get_first_sufficient_utxo(inputs[verification_key], amount + fee)
                      for verification_key in inputs}
         except:
             return None
