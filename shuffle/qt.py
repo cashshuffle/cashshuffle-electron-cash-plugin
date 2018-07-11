@@ -48,8 +48,11 @@ class ShuffleWidget(QWidget):
         QWidget.__init__(self)
         self.window = window
         self.timer = QtCore.QTimer()
+        self.update_inputs_timer = QtCore.QTimer()
         self.waiting_timeout = 180
         self.timer.timeout.connect(self.tick)
+        self.update_inputs_timer.timeout.connect(self.update_inputs)
+        self.update_inputs_timer.start(15000)
         self.coinshuffle_fee_constant = 1000
         # This is for debug
         # self.coinshuffle_fee_constant = 1000
@@ -106,6 +109,11 @@ class ShuffleWidget(QWidget):
         vbox.addLayout(hbox)
         vbox.addStretch(1)
 
+
+    def update_inputs(self):
+        self.coinshuffle_inputs.update(self.window.wallet)
+        self.coinshuffle_outputs.update(self.window.wallet)
+
     def tick(self):
         self.waiting_timeout -= 1
         if self.waiting_timeout > 0:
@@ -153,18 +161,20 @@ class ShuffleWidget(QWidget):
 
 
     def process_protocol_messages(self, message):
-
         if message.startswith("Error"):
             self.pThread.join()
             self.coinshuffle_text_output.setTextColor(QColor('red'))
             self.coinshuffle_text_output.append(message)
             self.enable_coinshuffle_settings()
+            self.coinshuffle_cancel_button.setEnabled(False)
+            self.coinshuffle_inputs.update(self.window.wallet)
+            self.coinshuffle_outputs.update(self.window.wallet)
             self.timer.stop()
         elif message[-17:] == "complete protocol":
+            self.coinshuffle_text_output.append(message)
             self.pThread.done.set()
             tx = self.pThread.protocol.tx
             if tx:
-                # self.window.show_transaction(tx)
                 self.pThread.join()
             else:
                 print("No tx: " + str(tx.raw))

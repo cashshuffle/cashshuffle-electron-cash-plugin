@@ -32,8 +32,6 @@ from PyQt5.QtGui import *
 from electroncash_gui.qt.util import *
 from electroncash.i18n import _
 from .client import ProtocolThread
-# from electroncash.bitcoin import regenerate_key
-# from electroncash.address import Address
 
 class AmountSelect(QGroupBox):
 
@@ -81,13 +79,13 @@ class InputAdressWidget(QComboBox):
 
     def update(self, wallet):
         current_input = self.get_input_address()
-        currentindex = self.currentIndex()
         self.clear_addresses()
         self.setItmes(wallet)
-        if current_input in self.inputsArray:
-            self.setCurrentIndex(self.inputsArray.index(current_input))
-        else:
-            self.setCurrentIndex(0)
+        for i, input in enumerate(self.inputsArray):
+            if current_input.to_string(Address.FMT_LEGACY) == input['address'].to_string(Address.FMT_LEGACY):
+                self.setCurrentIndex(i)
+                return
+        self.setCurrentIndex(0)
 
     def clear_addresses(self):
         self.inputsArray = []
@@ -131,13 +129,13 @@ class OutputAdressWidget(QComboBox):
 
     def update(self, wallet):
         current_output = self.get_output_address()
-        currentindex = self.currentIndex()
         self.clear_addresses()
         self.setItems(wallet)
-        if current_output in self.outputsArray:
-            self.setCurrentIndex(self.outputsArray.index(current_output))
-        else:
-            self.setCurrentIndex(0)
+        for i, output in enumerate(self.outputsArray):
+            if current_output == output.to_string(Address.FMT_LEGACY):
+                self.setCurrentIndex(i)
+                return
+        self.setCurrentIndex(0)
 
 
 class ConsoleLogger(QObject):
