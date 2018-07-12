@@ -111,8 +111,9 @@ class ShuffleWidget(QWidget):
 
 
     def update_inputs(self):
-        self.coinshuffle_inputs.update(self.window.wallet)
-        self.coinshuffle_outputs.update(self.window.wallet)
+        if not self.coinshuffle_cancel_button.isEnabled():
+            self.coinshuffle_inputs.update(self.window.wallet)
+            self.coinshuffle_outputs.update(self.window.wallet)
 
     def tick(self):
         self.waiting_timeout -= 1

@@ -82,13 +82,14 @@ class InputAdressWidget(QComboBox):
         if self.inputsArray == None:
             self.setItmes(wallet)
         current_input = self.get_input_address()
-        self.clear_addresses()
-        self.setItmes(wallet)
-        for i, input in enumerate(self.inputsArray):
-            if current_input.to_string(Address.FMT_LEGACY) == input['address'].to_string(Address.FMT_LEGACY):
-                self.setCurrentIndex(i)
-                return
-        self.setCurrentIndex(0)
+        if not current_input == None:
+            self.clear_addresses()
+            self.setItmes(wallet)
+            for i, input in enumerate(self.inputsArray):
+                if current_input.to_string(Address.FMT_LEGACY) == input['address'].to_string(Address.FMT_LEGACY):
+                    self.setCurrentIndex(i)
+                    return
+            self.setCurrentIndex(0)
 
     def clear_addresses(self):
         self.inputsArray = []
@@ -101,7 +102,10 @@ class InputAdressWidget(QComboBox):
                          self.amounted_value(utxo['value']))
 
     def get_input_address(self):
-        return self.inputsArray[self.currentIndex()]['address']
+        if len(self.inputsArray) > 0:
+            return self.inputsArray[self.currentIndex()]['address']
+        else:
+            return None
 
     def get_input_address_as_string(self, fmt=Address.FMT_LEGACY):
         return self.inputsArray[self.currentIndex()]['address'].to_string(fmt)
