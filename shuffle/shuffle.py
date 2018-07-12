@@ -69,6 +69,7 @@ class InputAdressWidget(QComboBox):
     def __init__(self, decimal_point, parent=None):
         QComboBox.__init__(self, parent)
         self.decimal_point = decimal_point
+        self.inputsArray = None
 
     def amounted_value(self, value):
         p = self.decimal_point()
@@ -78,6 +79,8 @@ class InputAdressWidget(QComboBox):
         return str(value * (10**(- p))) + " " + units[p]
 
     def update(self, wallet):
+        if self.inputsArray == None:
+            self.setItmes(wallet)
         current_input = self.get_input_address()
         self.clear_addresses()
         self.setItmes(wallet)
@@ -114,6 +117,7 @@ class OutputAdressWidget(QComboBox):
 
     def __init__(self, parent=None):
         QComboBox.__init__(self, parent)
+        self.outputsArray = None
 
     def clear_addresses(self):
         self.outputsArray = []
@@ -128,6 +132,8 @@ class OutputAdressWidget(QComboBox):
         return self.outputsArray[self.currentIndex()].to_string(fmt)
 
     def update(self, wallet):
+        if self.outputsArray == None:
+            self.setItems(wallet)
         current_output = self.get_output_address()
         self.clear_addresses()
         self.setItems(wallet)
