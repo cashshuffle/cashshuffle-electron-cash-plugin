@@ -80,3 +80,79 @@ If you want to add your server to the list follow the next structure:
 ```
 
 `port` value should be integer value of your server port and `ssl` should be boolean value of ssl support.
+
+## Running a shuffling bot
+
+You can run a shuffling bot for supporting of shuffling process. Bot is a simple python script which is looking at the selected cashshuffle server to see if it is a some players in the pool. If it finds a players it also run cahsshuffle protocol clients for mixing.
+
+If you want to run the bot you need to install `schedule` module first:
+
+```
+pip install schedule
+```
+
+Then you should run the bot itself. Do it from electron-cash root directory:
+
+```
+python3 plugins/shuffle/bot.py -S cashshuffle_server_name -P cashshuffle_port_number -I cashshuffle_info_port -W path_to_wallet 
+```
+
+Here `cashshuffle_server_name` is a cashshuffle server address. It should not contain protocol prefix like `http://` or `https://`. It also should not contain port srecifications like `:3000` or so. Specify the port numbers with `cashshuffle_port_number` and `cashshuffle_info_port` parameters. `path_to_wallet` is a path in the system where the wallet is. Here is how it can look like
+
+```
+python3 plugins/shuffle/bot.py -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet 
+```
+
+It means we run a bot to support shuffling on the `http://cashshuffle.server.name:8080` server, which use port number 8081 for information and wallet with name `my_wallet` is placed in the electron-cash root
+
+### Specifying the server parameters
+
+Cashshuffle server can be run with `ssl` suport. You should use `--ssl` key to specify it:
+
+```
+python3 plugins/shuffle/bot.py --ssl -S cashshuffle_server_name -P cashshuffle_port_number -I cashshuffle_info_port -W path_to_wallet 
+```
+
+Here is an example:
+
+```
+python3 plugins/shuffle/bot.py --ssl -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet 
+```
+
+### Specifying the testnet/mainnet
+
+If you want to try it on testnet use `--testnet` key. Here is an example:
+
+```
+python3 plugins/shuffle/bot.py --testnet -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet 
+```
+
+By default it operates on the mainnet.
+
+### Specifying the pool parameters
+
+You can set up the minimum number of players in the pool to support it with `-L` key. You can also set up the maximum number of players to support the mixing with `-M` key. And you can specify the fee value with `-F` key. Here is an example:  
+
+```
+python3 plugins/shuffle/bot.py  -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet -L 1 -M 2 -F 1000
+```
+It means we run bot which enters the mixing only if there is at least one player in the pool, and the bot can add 2 players maximum to the pool, and fee is set to be 1000 satoshi. By default this values are 1 fro `L` and `M` key and 1000 for `F` key. 
+
+### Specifying the wallet password
+
+If your wallet is encrypteed (highly recomended!) you should specify the password with `--password` key. Here is an example:
+
+```
+python3 plugins/shuffle/bot.py  -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet --password pwd
+```
+Here in example we set the password to be `pwd`. If you missed this key bot will raise an error.
+
+### Specifying the pending period
+
+You can set up how often should bot check for someone in the pool for mixing. This value is in minutes. Here is an example:
+
+```
+python3 plugins/shuffle/bot.py  -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet -T 2
+```
+
+In this example we specifying 2 minutes pending period. It is 10 minutes by default.
