@@ -59,7 +59,7 @@ class ShuffleWidget(QWidget):
 
         # self.coinshuffle_amounts = [1e7, 1e6]
         # Use this in test mode
-        self.coinshuffle_amounts = [1e5, 1e6]
+        self.coinshuffle_amounts = [1e5, 1e6, 1e7]
         self.shuffle_grid = QGridLayout()
         self.shuffle_grid.setSpacing(8)
         self.shuffle_grid.setColumnStretch(3, 1)
