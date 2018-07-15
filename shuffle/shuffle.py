@@ -289,3 +289,13 @@ class ServersList(QComboBox):
         server = self.servers_list.get(current_server)
         server["server"] = current_server
         return server
+
+
+class ExternalOutput(QLineEdit):
+
+    def __init__(self, parent=None):
+        QLineEdit.__init__(self, parent)
+        self.setEnabled(False)
+        self.q_exp =  QRegExp("[13][a-km-zA-HJ-NP-Z1-9]{33}")
+        self.validator = QRegExpValidator(self.q_exp ,self)
+        self.setValidator(self.validator)
