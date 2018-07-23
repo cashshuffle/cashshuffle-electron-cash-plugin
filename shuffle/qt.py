@@ -41,7 +41,29 @@ from electroncash.i18n import _
 from electroncash_gui.qt.util import EnterButton, Buttons, CloseButton
 from electroncash_gui.qt.util import OkButton, WindowModalDialog
 from electroncash.address import Address
-from .shuffle import InputAdressWidget, ChangeAdressWidget, OutputAdressWidget, ConsoleOutput, AmountSelect, ServersList, ExternalOutput
+from .shuffle import InputAdressWidget, ChangeAdressWidget, OutputAdressWidget, ConsoleOutput, AmountSelect, ServersList, ExternalOutput, ConsoleLogger
+from .client import bot_job, BotThread
+from .coin import Coin
+
+class SimpleLogger(object):
+
+    def __init__(self, logchan = None):
+        self.pThread = None
+        self.logchan = logchan
+
+    def send(self, message):
+        if not self.logchan == None:
+            self.logchan.send(message)
+        if message.startswith("Error"):
+            self.pThread.done.set()
+        elif message.startswith("Blame"):
+            if "insufficient" in message:
+                pass
+            elif "wrong hash" in message:
+                pass
+            else:
+                self.pThread.done.set()
+
 
 class ShuffleWidget(QWidget):
 
@@ -55,6 +77,11 @@ class ShuffleWidget(QWidget):
         self.update_inputs_timer.timeout.connect(self.update_inputs)
         self.update_inputs_timer.start(15000)
         self.coinshuffle_fee_constant = 1000
+        self.bot_thread = None
+        self.bot_limit_value = 1
+        self.bot_maximum_value = 1
+        self.bot_period_value = 10
+        self.bot_stopper = False
         # This is for debug
         # self.coinshuffle_fee_constant = 1000
 
@@ -66,22 +93,55 @@ class ShuffleWidget(QWidget):
         self.shuffle_grid.setColumnStretch(3, 1)
 
         self.coinshuffle_servers = ServersList()
+        self.coinshuffle_enable_bot = QCheckBox(_('Use bot'))
         self.coinshuffle_inputs = InputAdressWidget(decimal_point = self.window.get_decimal_point)
+        self.coinshuffle_inputs_label = QLabel(_('Shuffle input address '))
         self.coinshuffle_changes = ChangeAdressWidget()
+        self.coinshuffle_changes_label = QLabel(_('Shuffle change address'))
         self.coinshuffle_fresh_changes = QCheckBox(_('Show only fresh change addresses'))
         self.coinshuffle_use_external_output = QCheckBox(_('Use external output address'))
         self.coinshuffle_outputs = OutputAdressWidget()
+        self.coinshuffle_outputs_label = QLabel(_('Shuffle output address'))
         self.coinshuffle_external_output = ExternalOutput()
         self.coinshuffle_amount_radio = AmountSelect(self.coinshuffle_amounts, decimal_point = self.window.get_decimal_point)
         self.coinshuffle_fee = QLabel(_(self.window.format_amount_and_units(self.coinshuffle_fee_constant)))
+        self.coinshuffle_amount_label = QLabel(_('Amount'))
         self.coinshuffle_text_output = ConsoleOutput()
         self.coinshuffle_timer_output = QLabel()
+
+        self.coinshuffle_bot_limit = QLineEdit()
+        self.coinshuffle_bot_limit.setValidator(QIntValidator(1,100))
+        self.coinshuffle_bot_limit.setText(str(self.bot_limit_value))
+        self.coinshuffle_bot_limit_label = QLabel(_('Minimal number of players in pool'))
+        self.coinshuffle_bot_maximum = QLineEdit()
+        self.coinshuffle_bot_maximum.setValidator(QIntValidator(1,100))
+        self.coinshuffle_bot_maximum.setText(str(self.bot_maximum_value))
+        self.coinshuffle_bot_maximum_label = QLabel(_('Maximum players to support pool'))
+        self.coinshuffle_bot_period = QLineEdit()
+        self.coinshuffle_bot_period.setValidator(QIntValidator(1,1000))
+        self.coinshuffle_bot_period.setText(str(self.bot_period_value))
+        self.coinshuffle_bot_period_label = QLabel(_('Lookup period in minutes'))
+
+        self.coinshuffle_bot_start_button = EnterButton(_("Run bot"),lambda :self.start_bot())
+        self.coinshuffle_bot_stop_button = EnterButton(_("Stop bot"),lambda :self.cancel_bot())
+        self.coinshuffle_bot_start_button.setEnabled(True)
+        self.coinshuffle_bot_stop_button.setEnabled(False)
+
+        self.coinshuffle_bot_limit.hide()
+        self.coinshuffle_bot_maximum.hide()
+        self.coinshuffle_bot_period.hide()
+        self.coinshuffle_bot_limit_label.hide()
+        self.coinshuffle_bot_maximum_label.hide()
+        self.coinshuffle_bot_period_label.hide()
+        self.coinshuffle_bot_start_button.hide()
+        self.coinshuffle_bot_stop_button.hide()
 
         self.coinshuffle_inputs.currentIndexChanged.connect(self.check_sufficient_ammount)
         self.coinshuffle_amount_radio.button_group.buttonClicked.connect(self.check_sufficient_ammount)
         self.coinshuffle_fresh_changes.stateChanged.connect(lambda: self.coinshuffle_changes.update(self.window.wallet, fresh_only = self.coinshuffle_fresh_changes.isChecked()))
         self.coinshuffle_use_external_output.stateChanged.connect(lambda: self.coinshuffle_change_outputs(self.coinshuffle_use_external_output.isChecked()))
         self.coinshuffle_external_output.textChanged.connect(self.check_sufficient_ammount)
+        self.coinshuffle_enable_bot.stateChanged.connect(self.switch_bot)
 
         self.coinshuffle_start_button = EnterButton(_("Shuffle"),lambda :self.start_coinshuffle_protocol())
         self.coinshuffle_cancel_button = EnterButton(_("Cancel"),lambda :self.cancel_coinshuffle_protocol())
@@ -89,12 +149,13 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_cancel_button.setEnabled(False)
 
         self.shuffle_grid.addWidget(QLabel(_('Shuffle server')), 1, 0)
-        self.shuffle_grid.addWidget(QLabel(_('Shuffle input address')), 2, 0)
-        self.shuffle_grid.addWidget(QLabel(_('Shuffle change address')), 3, 0)
-        self.shuffle_grid.addWidget(QLabel(_('Shuffle output address')), 5, 0)
-        self.shuffle_grid.addWidget(QLabel(_('Amount')), 8, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_inputs_label, 2, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_changes_label, 3, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_outputs_label, 5, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_amount_label, 8, 0)
         self.shuffle_grid.addWidget(QLabel(_('Fee')), 9, 0)
-        self.shuffle_grid.addWidget(self.coinshuffle_servers, 1, 1,1,-1)
+        self.shuffle_grid.addWidget(self.coinshuffle_servers, 1, 1, 1, 1)
+        self.shuffle_grid.addWidget(self.coinshuffle_enable_bot,1, 2, 1, -1)
         self.shuffle_grid.addWidget(self.coinshuffle_fresh_changes, 4, 1)
         self.shuffle_grid.addWidget(self.coinshuffle_use_external_output, 6, 1)
         self.shuffle_grid.addWidget(self.coinshuffle_external_output, 7, 1, 1, -1)
@@ -108,6 +169,16 @@ class ShuffleWidget(QWidget):
         self.shuffle_grid.addWidget(self.coinshuffle_timer_output, 10, 2)
         self.shuffle_grid.addWidget(self.coinshuffle_text_output, 11, 0, 1, -1)
 
+        self.shuffle_grid.addWidget(self.coinshuffle_bot_limit, 2, 1)
+        self.shuffle_grid.addWidget(self.coinshuffle_bot_maximum, 3, 1)
+        self.shuffle_grid.addWidget(self.coinshuffle_bot_period, 4, 1)
+        self.shuffle_grid.addWidget(self.coinshuffle_bot_limit_label, 2, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_bot_maximum_label, 3, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_bot_period_label, 4, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_bot_start_button, 5, 0)
+        self.shuffle_grid.addWidget(self.coinshuffle_bot_stop_button, 5, 1)
+
+
         vbox0 = QVBoxLayout()
         vbox0.addLayout(self.shuffle_grid)
         hbox = QHBoxLayout()
@@ -115,6 +186,122 @@ class ShuffleWidget(QWidget):
         vbox = QVBoxLayout(self)
         vbox.addLayout(hbox)
         vbox.addStretch(1)
+
+
+    def disable_bot_settings(self):
+        self.coinshuffle_servers.setEnabled(False)
+        self.coinshuffle_enable_bot.setEnabled(False)
+        self.coinshuffle_bot_limit.setEnabled(False)
+        self.coinshuffle_bot_maximum.setEnabled(False)
+        self.coinshuffle_bot_period.setEnabled(False)
+
+    def enable_bot_settings(self):
+        self.coinshuffle_servers.setEnabled(True)
+        self.coinshuffle_enable_bot.setEnabled(True)
+        self.coinshuffle_bot_limit.setEnabled(True)
+        self.coinshuffle_bot_maximum.setEnabled(True)
+        self.coinshuffle_bot_period.setEnabled(True)
+
+
+    def start_bot(self):
+        server_params = self.coinshuffle_servers.get_current_server()
+        server = server_params['server']
+        port = server_params['port']
+        info = server_params['info']
+        ssl = server_params.get('ssl', False)
+        stat_endpoint = "http{}://{}:{}/stats".format("s" if ssl else "", server, info)
+        limit_value = self.coinshuffle_bot_limit.text()
+        limit = int(limit_value) if not limit_value == "" else self.bot_limit_value
+        maximum_value = self.coinshuffle_bot_maximum.text()
+        maximum = int(maximum_value) if not maximum_value == "" else self.bot_maximum_value
+        period_value = self.coinshuffle_bot_period.text()
+        period = int(period_value) if not period_value == "" else self.bot_period_value
+        basic_logger = SimpleLogger(logchan=self.coinshuffle_text_output)
+        coin = Coin(self.window.network)
+        fee = self.coinshuffle_fee_constant
+        password = None
+        parent = self.window.top_level_window()
+        while self.window.wallet.has_password():
+            password = self.window.password_dialog(parent=parent)
+            if password is None:
+                # User cancelled password input
+                return
+            try:
+                self.window.wallet.check_password(password)
+                break
+            except Exception as e:
+                self.window.show_error(str(e), parent=parent)
+                continue
+        bot_logger = ConsoleLogger()
+        bot_logger.logUpdater.connect(lambda x: self.coinshuffle_text_output.append(x))
+        self.bot_thread = BotThread(stat_endpoint, server, port, self.window.network, ssl,
+                               limit, maximum, SimpleLogger, self.window.wallet, password,
+                               fee, bot_logger, True, period)
+        self.bot_thread.start()
+        self.disable_bot_settings()
+        self.coinshuffle_bot_start_button.setEnabled(False)
+        self.coinshuffle_bot_stop_button.setEnabled(True)
+
+    def cancel_bot(self):
+        self.coinshuffle_bot_stop_button.setEnabled(False)
+        if self.bot_thread:
+            self.bot_thread.join()
+        self.coinshuffle_bot_start_button.setEnabled(True)
+        self.enable_bot_settings()
+
+    def switch_bot(self, checked):
+        if checked:
+            self.coinshuffle_inputs.hide()
+            self.coinshuffle_inputs_label.hide()
+            self.coinshuffle_changes.hide()
+            self.coinshuffle_changes_label.hide()
+            self.coinshuffle_fresh_changes.hide()
+            self.coinshuffle_outputs_label.hide()
+            self.coinshuffle_outputs.hide()
+            self.coinshuffle_use_external_output.hide()
+            self.coinshuffle_external_output.hide()
+            self.coinshuffle_amount_label.hide()
+            self.coinshuffle_amount_radio.hide()
+            self.coinshuffle_start_button.hide()
+            self.coinshuffle_cancel_button.hide()
+            self.coinshuffle_timer_output.hide()
+
+            self.coinshuffle_bot_limit.show()
+            self.coinshuffle_bot_maximum.show()
+            self.coinshuffle_bot_period.show()
+            self.coinshuffle_bot_limit_label.show()
+            self.coinshuffle_bot_maximum_label.show()
+            self.coinshuffle_bot_period_label.show()
+            self.coinshuffle_bot_start_button.show()
+            self.coinshuffle_bot_stop_button.show()
+
+
+        else:
+            self.coinshuffle_bot_limit.hide()
+            self.coinshuffle_bot_maximum.hide()
+            self.coinshuffle_bot_period.hide()
+            self.coinshuffle_bot_limit_label.hide()
+            self.coinshuffle_bot_maximum_label.hide()
+            self.coinshuffle_bot_period_label.hide()
+            self.coinshuffle_bot_start_button.hide()
+            self.coinshuffle_bot_stop_button.hide()
+
+            self.coinshuffle_inputs.show()
+            self.coinshuffle_inputs_label.show()
+            self.coinshuffle_changes.show()
+            self.coinshuffle_changes_label.show()
+            self.coinshuffle_fresh_changes.show()
+            self.coinshuffle_outputs_label.show()
+            self.coinshuffle_outputs.show()
+            self.coinshuffle_use_external_output.show()
+            self.coinshuffle_external_output.show()
+            self.coinshuffle_amount_label.show()
+            self.coinshuffle_amount_radio.show()
+            self.coinshuffle_start_button.show()
+            self.coinshuffle_cancel_button.show()
+            self.coinshuffle_timer_output.show()
+
+
 
 
     def coinshuffle_change_outputs(self, checked):
@@ -173,6 +360,7 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_use_external_output.setEnabled(True)
         self.coinshuffle_external_output.setEnabled(True)
         self.coinshuffle_fresh_changes.setEnabled(True)
+        self.coinshuffle_enable_bot.setEnabled(True)
 
     def disable_coinshuffle_settings(self):
         self.coinshuffle_servers.setEnabled(False)
@@ -184,6 +372,7 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_use_external_output.setEnabled(False)
         self.coinshuffle_external_output.setEnabled(False)
         self.coinshuffle_fresh_changes.setEnabled(False)
+        self.coinshuffle_enable_bot.setEnabled(False)
 
 
     def process_protocol_messages(self, message):

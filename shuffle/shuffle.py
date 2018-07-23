@@ -133,19 +133,23 @@ class OutputAdressWidget(QComboBox):
             self.addItem(address.to_string(Address.FMT_LEGACY))
 
     def get_output_address(self, fmt=Address.FMT_LEGACY):
-        return self.outputsArray[self.currentIndex()].to_string(fmt)
+        if len(self.outputsArray) > 0:
+            return self.outputsArray[self.currentIndex()].to_string(fmt)
+        else:
+            return None
 
     def update(self, wallet):
         if self.outputsArray == None:
             self.setItems(wallet)
         current_output = self.get_output_address()
-        self.clear_addresses()
-        self.setItems(wallet)
-        for i, output in enumerate(self.outputsArray):
-            if current_output == output.to_string(Address.FMT_LEGACY):
-                self.setCurrentIndex(i)
-                return
-        self.setCurrentIndex(0)
+        if not current_output == None:
+            self.clear_addresses()
+            self.setItems(wallet)
+            for i, output in enumerate(self.outputsArray):
+                if current_output == output.to_string(Address.FMT_LEGACY):
+                    self.setCurrentIndex(i)
+                    return
+            self.setCurrentIndex(0)
 
 
 class ConsoleLogger(QObject):
