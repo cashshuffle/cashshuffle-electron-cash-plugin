@@ -79,8 +79,8 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_fee_constant = 1000
         self.bot_thread = None
         self.bot_limit_value = 1
-        self.bot_maximum_value = 1
-        self.bot_period_value = 10
+        self.bot_maximum_value = 3
+        self.bot_period_value = 1
         self.bot_stopper = False
         # This is for debug
         # self.coinshuffle_fee_constant = 1000
