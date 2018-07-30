@@ -6,6 +6,13 @@ import random
 import ecdsa
 import threading
 import time
+
+import imp
+imp.load_module('electroncash', *imp.find_module('lib'))
+imp.load_module('electroncash_gui', *imp.find_module('gui'))
+imp.load_module('electroncash_plugins', *imp.find_module('plugins'))
+
+
 from electroncash.util import InvalidPassword
 from electroncash_plugins.shuffle.client import ProtocolThread
 from electroncash_plugins.shuffle.commutator_thread import (ChannelWithPrint, Channel)
@@ -315,7 +322,8 @@ class bad_client_wrong_broadcast(ProtocolThread):
             self.players,
             self.addr_new,
             self.change)
-        self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        # self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        self.execution_thread = threading.Thread(target = self.protocol.start_protocol)
         self.execution_thread.start()
         self.done.wait()
         self.execution_thread.join()
@@ -356,7 +364,8 @@ class bad_client_output_vector(ProtocolThread):
             self.players,
             self.addr_new,
             self.change)
-        self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        # self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        self.execution_thread = threading.Thread(target = self.protocol.start_protocol)
         self.execution_thread.start()
         self.done.wait()
         self.execution_thread.join()
@@ -395,7 +404,8 @@ class bad_client_same_ciphertext(ProtocolThread):
             self.players,
             self.addr_new,
             self.change)
-        self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        # self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        self.execution_thread = threading.Thread(target = self.protocol.start_protocol)
         self.execution_thread.start()
         self.done.wait()
         self.execution_thread.join()
@@ -433,7 +443,8 @@ class bad_client_changig_the_output(ProtocolThread):
             self.players,
             self.addr_new,
             self.change)
-        self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        # self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
+        self.execution_thread = threading.Thread(target = self.protocol.start_protocol)
         self.execution_thread.start()
         self.done.wait()
         self.execution_thread.join()

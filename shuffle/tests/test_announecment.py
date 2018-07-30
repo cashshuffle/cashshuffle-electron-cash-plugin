@@ -1,5 +1,11 @@
 import unittest
 from test import TestProtocolCase
+
+# import imp
+# imp.load_module('electroncash', *imp.find_module('lib'))
+# imp.load_module('electroncash_gui', *imp.find_module('gui'))
+# imp.load_module('electroncash_plugins', *imp.find_module('plugins'))
+
 from electroncash.bitcoin import public_key_to_p2pkh
 
 class TestProtocol(TestProtocolCase):
@@ -32,4 +38,4 @@ class TestProtocol(TestProtocolCase):
         for pThread in protocolThreads[2:]:
             self.assertEqual(tx, pThread.protocol.tx.raw)
         print(protocolThreads[-1].protocol.tx.raw)
-        print(protocolThreads[-1].protocol.change_addresses)    
+        print(protocolThreads[-1].protocol.change_addresses)
