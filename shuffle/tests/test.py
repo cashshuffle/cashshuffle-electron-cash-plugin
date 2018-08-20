@@ -21,7 +21,9 @@ from electroncash_plugins.shuffle.crypto import Crypto
 from electroncash_plugins.shuffle.phase import Phase
 from electroncash_plugins.shuffle.coin_shuffle import Round
 from electroncash.bitcoin import (regenerate_key, deserialize_privkey, EC_KEY, generator_secp256k1,
-                                  number_to_string ,public_key_to_p2pkh, point_to_ser)
+                                  number_to_string ,public_key_to_p2pkh, point_to_ser, Hash)
+
+
 
 class testNetwork(object):
     "simple class for emulating the network. You can make your own utxo pool for test"
@@ -45,21 +47,25 @@ class testNetwork(object):
         return True, "done"
 
 class testThread(ProtocolThread):
-    def __init__(self, host, port, network, amount, fee, sk, pubk, addr_new, change, logger = None, ssl = False):
-        # protocolThread.__init__(self, host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = False)
-        super(testThread, self).__init__(host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = ssl)
+    def __init__(self, host, port, network, amount, fee, sk, sks, inputs, pubk, addr_new, change, logger = None, ssl = False):
+        # host, port, network, amount, fee, sk, sks, inputs, pubk, addr_new, change, logger=None, ssl=False
+        super(testThread, self).__init__(host, port, network, amount, fee, sk, sks, inputs, pubk, addr_new, change, logger = logger, ssl = ssl)
 
     @classmethod
-    def from_private_key(cls, priv_key, host, port, network, amount, fee, addr_new, change, ssl=False, logger = None):
+    def from_private_key(cls, priv_key, coin_hash, host, port, network, amount, fee, addr_new, change, ssl=False, logger = None):
         address, secret, compressed = deserialize_privkey(priv_key)
         sk = regenerate_key(secret)
         pubk = sk.get_public_key(compressed)
-        return cls(host, port, network, amount, fee, sk, pubk, addr_new, change, ssl=ssl, logger = logger)
+        sks = {pubk:sk}
+        inputs = {pubkey:[coin_hash]}
+        return cls(host, port, network, amount, fee, sk, sks, inputs, pubk, addr_new, change, ssl=ssl, logger = logger)
 
     @classmethod
-    def from_sk(cls, sk, host, port, network, amount, fee, addr_new, change, compressed = True, logger = None):
+    def from_sk(cls, sk, coin_hash, host, port, network, amount, fee, addr_new, change, compressed = True, logger = None):
         pubk = sk.get_public_key(compressed)
-        return cls(host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger)
+        sks = {pubk:sk}
+        inputs = {pubk:[coin_hash]}
+        return cls(host, port, network, amount, fee, sk, sks, inputs, pubk, addr_new, change, logger = logger)
 
 class random_sk(EC_KEY):
 
@@ -68,6 +74,18 @@ class random_sk(EC_KEY):
         _r  = G.order()
         pvk = ecdsa.util.randrange( pow(2,256) ) %_r
         eck = EC_KEY.__init__(self, number_to_string(pvk,_r))
+
+def make_fake_public_key(compressed=True, secret_key = None):
+    sk = secret_key
+    if not secret_key:
+        sk = random_sk()
+    return sk.GetPubKey(compressed).hex()
+
+def make_fake_address(compressed=True):
+    return public_key_to_p2pkh(make_fake_public_key(compressed=compressed))
+
+def fake_hash(address, value):
+    return Hash("{}{}".format(address, value)).hex()
 
 
 class Crypto_cheater(Crypto):
@@ -307,21 +325,12 @@ class bad_client_wrong_broadcast(ProtocolThread):
         begin_phase = Phase('Announcement')
         # Make Round
         self.protocol = Round_wrong_broadcast(
-            coin,
-            crypto,
-            self.messages,
-            self.outcome,
-            self.income,
-            self.logger,
-            self.session,
-            begin_phase,
-            self.amount ,
-            self.fee,
-            self.sk,
-            self.vk,
-            self.players,
-            self.addr_new,
-            self.change)
+            coin, crypto, self.messages,
+            self.outcome, self.income, self.logger,
+            self.session, begin_phase, self.amount, self.fee,
+            self.sk, self.sks, self.all_inputs, self.vk,
+            self.players, self.addr_new, self.change
+        )
         # self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
         self.execution_thread = threading.Thread(target = self.protocol.start_protocol)
         self.execution_thread.start()
@@ -349,21 +358,12 @@ class bad_client_output_vector(ProtocolThread):
         begin_phase = Phase('Announcement')
         # Make Round
         self.protocol = Round_wrong_output_vector(
-            coin,
-            crypto,
-            self.messages,
-            self.outcome,
-            self.income,
-            self.logger,
-            self.session,
-            begin_phase,
-            self.amount ,
-            self.fee,
-            self.sk,
-            self.vk,
-            self.players,
-            self.addr_new,
-            self.change)
+            coin, crypto, self.messages,
+            self.outcome, self.income, self.logger,
+            self.session, begin_phase, self.amount, self.fee,
+            self.sk, self.sks, self.all_inputs, self.vk,
+            self.players, self.addr_new, self.change
+        )
         # self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
         self.execution_thread = threading.Thread(target = self.protocol.start_protocol)
         self.execution_thread.start()
@@ -389,21 +389,12 @@ class bad_client_same_ciphertext(ProtocolThread):
         begin_phase = Phase('Announcement')
         # Make Round
         self.protocol = Round_wrong_ciphertexts(
-            coin,
-            crypto,
-            self.messages,
-            self.outcome,
-            self.income,
-            self.logger,
-            self.session,
-            begin_phase,
-            self.amount ,
-            self.fee,
-            self.sk,
-            self.vk,
-            self.players,
-            self.addr_new,
-            self.change)
+            coin, crypto, self.messages,
+            self.outcome, self.income, self.logger,
+            self.session, begin_phase, self.amount, self.fee,
+            self.sk, self.sks, self.all_inputs, self.vk,
+            self.players, self.addr_new, self.change
+        )
         # self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
         self.execution_thread = threading.Thread(target = self.protocol.start_protocol)
         self.execution_thread.start()
@@ -428,21 +419,12 @@ class bad_client_changig_the_output(ProtocolThread):
         begin_phase = Phase('Announcement')
         # Make Round
         self.protocol = Round_wrong_outputs(
-            coin,
-            crypto,
-            self.messages,
-            self.outcome,
-            self.income,
-            self.logger,
-            self.session,
-            begin_phase,
-            self.amount ,
-            self.fee,
-            self.sk,
-            self.vk,
-            self.players,
-            self.addr_new,
-            self.change)
+            coin, crypto, self.messages,
+            self.outcome, self.income, self.logger,
+            self.session, begin_phase, self.amount, self.fee,
+            self.sk, self.sks, self.all_inputs, self.vk,
+            self.players, self.addr_new, self.change
+        )
         # self.execution_thread = threading.Thread(target = self.protocol.protocol_loop)
         self.execution_thread = threading.Thread(target = self.protocol.start_protocol)
         self.execution_thread.start()
@@ -481,11 +463,19 @@ class TestProtocolCase(unittest.TestCase):
         sk = random_sk()
         channel = ChannelWithPrint() if with_print else Channel()
         pubk = sk.get_public_key()
+        sks = {pubk:sk}
         addr = public_key_to_p2pkh(bytes.fromhex(pubk))
-        self.network.add_coin(addr , self.amount + random.randint(self.amount + 1 , self.amount + self.fee + 1000))
+        coin_amount = self.amount + random.randint(self.amount + 1 , self.amount + self.fee + 1000)
+        coin_hash = fake_hash(addr, coin_amount)
+        inputs = {pubk:[coin_hash]}
+        self.network.add_coin(addr , coin_amount, tx_hash=coin_hash)
         # add checking fro parent class inheritance here
-        # (host, port, network, amount, fee, sk, pubk, addr_new, change, logger = logger, ssl = False)
-        return bad_cleint_thread(self.HOST, self.PORT, self.network, self.amount, self.fee, sk, pubk, self.get_random_address(), self.get_random_address(), logger = channel)
+        # host, port, network,
+        # amount, fee, sk, sks, inputs, pubk,
+        # addr_new, change, logger=None, ssl=False)
+        return bad_cleint_thread(self.HOST, self.PORT, self.network,
+                                 self.amount, self.fee, sk, sks, inputs ,pubk,
+                                 self.get_random_address(), self.get_random_address(), logger = channel)
 
     def make_clients_threads(self, number_of_clients = None, with_print = False):
         if not number_of_clients:
@@ -497,10 +487,12 @@ class TestProtocolCase(unittest.TestCase):
             pubk = player["sk"].get_public_key()
             addr = public_key_to_p2pkh(bytes.fromhex(pubk))
             # add coins to pseudonetwork with sufficient ammount
-            self.network.add_coin(addr , self.amount + random.randint(self.amount + 1 , self.amount + self.fee + 1000))
+            coin_amount = self.amount + random.randint(self.amount + 1 , self.amount + self.fee + 1000)
+            player["coin_hash"] = fake_hash(addr, coin_amount)
+            self.network.add_coin(addr , coin_amount, tx_hash=player["coin_hash"])
 
         # make threads
-        protocolThreads = [testThread.from_sk(player["sk"], self.HOST, self.PORT, self.network, self.amount, self.fee, self.get_random_address(), self.get_random_address(), logger = player['channel']) for player in players]
+        protocolThreads = [testThread.from_sk(player["sk"], player["coin_hash"] ,self.HOST, self.PORT, self.network, self.amount, self.fee, self.get_random_address(), self.get_random_address(), logger = player['channel']) for player in players]
         return protocolThreads
 
     def start_protocols(self, protocolThreads, delay = 0):

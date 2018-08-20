@@ -10,7 +10,7 @@ class Round(object):
     def __init__(self, coin, crypto, messages,
                  inchan, outchan, logchan,
                  session, phase, amount, fee,
-                 sk, pubkey, players, addr_new, change):
+                 sk, sks, inputs, pubkey, players, addr_new, change):
         self.coin = coin
         self.crypto = crypto
         self.inchan = inchan
@@ -24,6 +24,8 @@ class Round(object):
         assert (fee > 0), 'Wrong fee value'
         self.fee = fee
         self.sk = sk
+        self.sks = sks
+        self.inputs = inputs
         self.me = None
         self.number_of_players = None
         assert(isinstance(players, dict)), "Players should be stored in dict"
@@ -34,7 +36,7 @@ class Round(object):
             if self.vk in players.values():
                 self.me = {players[player] : player for player in players}[self.vk]
             else:
-                self.logchan('Error: publick key is not in the players list')
+                self.logchan.send('Error: publick key is not in the players list')
                 self.done = True
                 return
         else:
@@ -42,7 +44,7 @@ class Round(object):
             self.done = True
             return
         self.encryption_keys = dict()
-        self.new_addresses = set()
+        self.new_addresses = []
         self.addr_new = addr_new
         self.change = change
         self.change_addresses = {}
@@ -247,10 +249,10 @@ class Round(object):
         4. It makes a unsigned transaction, compute players inputs signature for this tracnsaction and broadcast it
         """
         phase = self.messages.phases[self.phase]
-        computed_hash = self.crypto.hash(str(self.new_addresses) +
-                                         str([self.encryption_keys[self.players[i]]
-                                              for i in sorted(self.players)]))
         if self.is_inbox_complete(phase):
+            computed_hash = self.crypto.hash(str(self.new_addresses) +
+                                             str([self.encryption_keys[self.players[i]]
+                                                  for i in sorted(self.players)]))
             messages = self.inbox[phase]
             for player in messages:
                 self.messages.packets.ParseFromString(messages[player])
@@ -265,27 +267,25 @@ class Round(object):
                     self.phase = "Blame"
                     self.send_message()
                     cheater = [p for p in self.players if self.players[p] == player][0]
-                    self.log_message("find bad hash from " +str(cheater))
+                    self.log_message("found bad hash from " +str(cheater))
                     self.logchan.send('Blame: wrong hash computed by player ' + str(cheater))
                     return
             self.phase = 'VerificationAndSubmission'
             self.log_message("reaches phase 5")
-            inputs = {self.players[player]:self.coin.address(self.players[player])
-                      for player in self.players}
             self.transaction = self.coin.make_unsigned_transaction(self.amount,
                                                                    self.fee,
-                                                                   inputs,
+                                                                   self.inputs,
                                                                    self.new_addresses,
                                                                    self.change_addresses)
             if self.transaction == None:
                 self.logchan.send("Error: blockchain network fault!")
                 self.done = True
                 return
-            signature = self.coin.get_transaction_signature(self.transaction, self.sk, self.vk)
+            signatures = self.coin.get_transaction_signature(self.transaction, self.inputs[self.vk], self.sks)
             self.messages.clear_packets()
-            self.messages.add_signature(signature)
+            self.messages.add_signatures(signatures)
             self.send_message()
-            self.log_message("send transction signature")
+            self.log_message("send transction signatures")
 
     def process_verification_and_submission(self):
         """
@@ -303,21 +303,35 @@ class Round(object):
         if self.is_inbox_complete(phase):
             self.signatures = {}
             self.log_message("got transction signatures")
+            pubkeys = {}
+            for vk in self.inputs:
+                for pubkey in self.inputs[vk]:
+                    for tx_hash in self.inputs[vk][pubkey]:
+                        pubkeys[tx_hash] = pubkey
             for player in self.players:
                 self.messages.packets.ParseFromString(self.inbox[phase][self.players[player]])
-                player_signature = self.messages.get_signature()
-                self.signatures[self.players[player]] = player_signature
-                check = self.coin.verify_tx_signature(player_signature,
-                                                      self.transaction,
-                                                      self.players[player])
-                if not check:
-                    self.messages.blame_wrong_transaction_signature(self.players[player])
-                    self.send_message()
-                    self.logchan.send('Blame: wrong transaction signature from player ' +
-                                      str(player))
-                    self.done = True
-                    return
-                    # raise BlameException('Wrong tx signature from player ' + str(player))
+                player_signatures = self.messages.get_signatures()
+                for tx_hash in player_signatures:
+                    if not self.coin.verify_tx_signature(player_signatures[tx_hash], self.transaction, pubkeys[tx_hash], tx_hash):
+                        self.messages.blame_wrong_transaction_signature(self.players[player])
+                        self.send_message()
+                        self.logchan.send('Blame: wrong transaction signature from player ' +
+                                          str(player))
+                        self.done = True
+                        return
+                    self.signatures.update(player_signatures)
+            #     self.signatures[self.players[player]] = player_signatures
+            #     check = self.coin.verify_tx_signature(player_signature,
+            #                                           self.transaction,
+            #                                           self.players[player])
+            #     if not check:
+            #         self.messages.blame_wrong_transaction_signature(self.players[player])
+            #         self.send_message()
+            #         self.logchan.send('Blame: wrong transaction signature from player ' +
+            #                           str(player))
+            #         self.done = True
+            #         return
+            #         # raise BlameException('Wrong tx signature from player ' + str(player))
             self.coin.add_transaction_signatures(self.transaction, self.signatures)
             msg, status = self.coin.broadcast_transaction(self.transaction)
             if msg == None and status == None:
@@ -470,7 +484,8 @@ class Round(object):
         This function implements processing of messages in blame and equivocation failure case
 
         It does the follows:
-        1.
+        1. It got all messages from other players and checking it for correct shuffling
+        2. If there is a cheater it exclude cheater from players, ban it and starts protocol with key broadcastig
         """
         phase_blame = self.messages.phases["Blame"]
         if self.is_inbox_complete(phase_blame):
@@ -486,7 +501,15 @@ class Round(object):
                     self.broadcast_new_key()
 
     def check_for_shuffling(self):
-        """Replays the shuffling phase to identify the cheater"""
+        """
+        This function implemets checking for shuffling form messages after shuffling failureself.
+
+        It does the follows:
+        1. Takes the messages from other players
+        2. get it's encryption keys and decryption keys
+        3. replays shuffling until it found a broken step
+        4. return cheater if broken step was found
+        """
         shufflings = {}
         cheater = None
         phase_blame = self.messages.phases["Blame"]
@@ -514,7 +537,7 @@ class Round(object):
                 break
         return cheater
 
-# Other
+# Function for working with players
 
     def first_player(self):
         """Returns the first index of sorted players dict"""
@@ -562,10 +585,12 @@ class Round(object):
         index = sorted(self.players).index(self.next_player())
         return reversed(sorted(self.players)[index:])
 
+
+# Functions for working with messages
+
     def check_for_signatures(self):
         """
-        Check for signature in packets in the messages objectself.
-        Raise Exception if signature verification fails
+        Check for signature in packets in the messages objec.
         """
         for sig, msg, player in self.messages.get_signatures_and_packets():
             if not self.coin.verify_signature(sig, msg, player):
@@ -588,35 +613,36 @@ class Round(object):
         Keyword arguments:
         destination - verification key of receiver (default None)
         """
-        self.messages.form_all_packets(self.sk,
-                                       self.session,
-                                       self.me,
-                                       self.vk,
-                                       destination,
-                                       self.phase)
+        self.messages.form_all_packets(self.sk, self.session, self.me,
+                                       self.vk, destination, self.phase)
         self.outchan.send(self.messages.packets.SerializeToString())
 
     def log_message(self, message):
         """Sends message from current player to log channel"""
         self.logchan.send("Player " + str(self.me) + " " + message)
 
+# Miscellaneous functions
     def blame_insufficient_funds(self):
         """
         Checks for all players to have a sufficient funds to do the shuffling
         Enter the Blame phase if someone have no funds for shuffling
         """
         offenders = list()
-        for player in self.players:
-            address = self.coin.address(self.players[player])
-            is_funds_sufficient = self.coin.sufficient_funds(address, self.amount + self.fee)
+
+        for player in self.inputs:
+            is_funds_sufficient = self.coin.check_inputs_for_sufficient_funds(self.inputs[player], self.amount + self.fee)
+            # print("{} {}".format(player, is_funds_sufficient))
+        # for player in self.players:
+        #     address = self.coin.address(self.players[player])
+        #     is_funds_sufficient = self.coin.sufficient_funds(address, self.amount + self.fee)
             if is_funds_sufficient == None:
                 self.logchan.send("Error: blockchain network fault!")
                 self.done = True
                 return None
             # if not self.coin.sufficient_funds(address, self.amount + self.fee):
-            elif not self.coin.sufficient_funds(address, self.amount + self.fee):
-                offenders.append(self.players[player])
-
+            elif not is_funds_sufficient:
+                offenders.append(player)
+        #
         if len(offenders) == 0:
             self.log_message("finds sufficient funds")
             return True
@@ -640,7 +666,6 @@ class Round(object):
                 self.done = True
                 return False
             if self.vk in offenders:
-
                 self.logchan.send('Error: players funds is not enough')
                 self.done = True
                 return False
@@ -693,8 +718,6 @@ class Round(object):
             self.logchan.send("Blame: different blame reasons from players")
             self.done = True
             return
-            # raise BlameException("Blame: different blame reasons from players")
         elif self.messages.get_accused_key in self.players.values():
             self.logchan.send("Blame: different blame players from players")
             self.done = True
-            # raise BlameException("Blame: different blame players from players")

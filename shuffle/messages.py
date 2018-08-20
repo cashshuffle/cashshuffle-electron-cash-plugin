@@ -59,8 +59,6 @@ class Messages(object):
             packet.packet.session = session
             packet.packet.phase = self.phases.get(phase)
             packet.packet.number = int(number)
-            packet.packet.session = session
-            packet.packet.number = int(number)
             packet.packet.from_key.key = vk_from
             if vk_to:
                 packet.packet.to_key.key = vk_to
@@ -142,6 +140,31 @@ class Messages(object):
         packet.packet.message.key.key = ek
         if change: packet.packet.message.address.address = change
 
+    def add_inputs(self, inputs):
+        """
+        Adds an inputs to the NEW packet
+
+        Here inputs is a dict with bitcoin pubkey as a key and array
+        utxo transaction id's as a values.
+
+        Example:
+        {
+
+            "bitcoinpubkey_1":[
+                "tx_hash_1111",
+                "tx_hash_1112"
+            ],
+
+            "bitcoinpubkey_2":[
+                "tx_hash_22221"
+                "tx_hash_22222"
+            ]
+        }
+        """
+        packet = self.packets.packet.add()
+        for k in inputs:
+            packet.packet.message.inputs[k].coins[:] = inputs[k]
+
     def get_new_addresses(self):
         "extract new addresses from packets"
         return [packet.packet.message.str for packet in self.packets.packet]
@@ -161,10 +184,16 @@ class Messages(object):
         packet = self.packets.packet.add()
         packet.packet.message.hash.hash = hash_value
 
-    def add_signature(self, signature):
-        "adds signature to NEW packet"
+    # def add_signature(self, signature):
+    #     "adds signature to NEW packet"
+    #     packet = self.packets.packet.add()
+    #     packet.packet.message.signature.signature = signature
+
+    def add_signatures(self, signatures):
+        "adds signatures to NEW packet"
         packet = self.packets.packet.add()
-        packet.packet.message.signature.signature = signature
+        for k in signatures:
+            packet.packet.message.signatures[k].signature = signatures[k]
 
     def shuffle_packets(self):
         "shuffle the packets"
@@ -225,9 +254,22 @@ class Messages(object):
         return self.packets.packet[-1].packet.message.str
 
     @check_for_length
-    def get_signature(self):
-        "gets the signature from the last packet"
-        return self.packets.packet[-1].packet.message.signature.signature
+    def get_inputs(self):
+        "gets the inputs from the last packet"
+        result = {}
+        inputs = self.packets.packet[-1].packet.message.inputs
+        for k in inputs:
+            result[k] = inputs[k].coins[:]
+        return result
+
+    @check_for_length
+    def get_signatures(self):
+        "gets the signatures from the last packet"
+        result = {}
+        signatures = self.packets.packet[-1].packet.message.signatures
+        for k in signatures:
+            result[k] = signatures[k].signature
+        return result
 
     @check_for_length
     def get_blame_reason(self):

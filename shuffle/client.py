@@ -15,7 +15,7 @@ class ProtocolThread(threading.Thread):
     This class emulate thread with protocol run
     """
     def __init__(self, host, port, network,
-                 amount, fee, sk, pubk,
+                 amount, fee, sk, sks, inputs, pubk,
                  addr_new, change, logger=None, ssl=False):
 
         threading.Thread.__init__(self)
@@ -38,6 +38,9 @@ class ProtocolThread(threading.Thread):
         self.amount = amount
         self.fee = fee
         self.sk = sk
+        self.sks = sks
+        self.inputs = inputs
+        self.all_inputs = {}
         self.addr_new = addr_new
         self.change = change
         self.deamon = True
@@ -96,7 +99,8 @@ class ProtocolThread(threading.Thread):
                          + str(self.number_of_players) +" players.\n")
         #Share the keys
         self.messages.clear_packets()
-        self.messages.packets.packet.add()
+        # self.messages.packets.packet.add()
+        self.messages.add_inputs(self.inputs)
         self.messages.packets.packet[-1].packet.from_key.key = self.vk
         self.messages.packets.packet[-1].packet.session = self.session
         self.messages.packets.packet[-1].packet.number = self.number
@@ -110,8 +114,15 @@ class ProtocolThread(threading.Thread):
         for _ in range(self.number_of_players):
             messages += self.outcome.recv()
         self.messages.packets.ParseFromString(messages)
-        self.players = {packet.packet.number:str(packet.packet.from_key.key)
-                        for packet in self.messages.packets.packet}
+        # self.players = {packet.packet.number:str(packet.packet.from_key.key)
+        #                 for packet in self.messages.packets.packet}
+        for packet in self.messages.packets.packet:
+            player_number = packet.packet.number
+            player_key = str(packet.packet.from_key.key)
+            self.players[player_number] = player_key
+            self.all_inputs[player_key] = {}
+            for pk in packet.packet.message.inputs:
+                self.all_inputs[player_key][pk] = packet.packet.message.inputs[pk].coins[:]
         if self.players:
             self.logger.send('Player ' +str(self.number)+ " get " + str(len(self.players))+".\n")
         #check if all keys are different
@@ -139,11 +150,14 @@ class ProtocolThread(threading.Thread):
             self.amount,
             self.fee,
             self.sk,
+            self.sks,
+            self.all_inputs,
             self.vk,
             self.players,
             self.addr_new,
             self.change)
-        self.execution_thread = threading.Thread(target=self.protocol.protocol_loop)
+        # self.execution_thread = threading.Thread(target=self.protocol.protocol_loop)
+        self.execution_thread = threading.Thread(target=self.protocol.start_protocol)
         self.execution_thread.start()
         self.done.wait()
         self.execution_thread.join()
