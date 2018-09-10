@@ -64,58 +64,64 @@ class AmountSelect(QGroupBox):
     def get_amount(self):
         return self.values[self.button_group.checkedId()]
 
-class InputAdressWidget(QComboBox):
+
+class InputAddressesWidget(QTreeWidget):
 
     def __init__(self, decimal_point, parent=None):
-        QComboBox.__init__(self, parent)
+        QTreeWidget.__init__(self, parent)
+        self.parent = parent
         self.decimal_point = decimal_point
+        self.stretch_column = 1
         self.inputsArray = None
+        self.setUniformRowHeights(True)
+        # extend the syntax for consistency
+        self.addChild = self.addTopLevelItem
+        self.insertChild = self.insertTopLevelItem
+        self.editor = None
+        self.set_headers()
 
-    def amounted_value(self, value):
-        p = self.decimal_point()
-        units = {2:"bits", 5:"mBCH", 8:"BCH"}
-        if p not in [2, 5, 8]:
-            p = 8
-        return str(value * (10**(- p))) + " " + units[p]
+    def set_headers(self):
+        self.setColumnCount(2)
+        self.setHeaderLabels(["Address", "Amount"])
+        self.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
 
-    def update(self, wallet):
-        if self.inputsArray == None:
-            self.setItmes(wallet)
-        current_input = self.get_input_address()
-        if not current_input == None:
-            self.clear_addresses()
-            self.setItmes(wallet)
-            for i, input in enumerate(self.inputsArray):
-                if current_input.to_string(Address.FMT_LEGACY) == input['address'].to_string(Address.FMT_LEGACY):
-                    self.setCurrentIndex(i)
-                    return
-            self.setCurrentIndex(0)
-
-    def clear_addresses(self):
-        self.inputsArray = []
+    def setItems(self, wallet, checked_utxos = []):
         self.clear()
-
-    def setItmes(self, wallet):
         self.inputsArray = wallet.get_utxos()
         for utxo in self.inputsArray:
-            self.addItem(utxo.get('address').to_string(Address.FMT_LEGACY) + ': ' +
-                         self.amounted_value(utxo['value']))
+            address = utxo['address']
+            address_text = address.to_ui_string()
+            amount = self.parent.format_amount(utxo['value'])
+            utxo_item = SortableTreeWidgetItem([address_text, amount])
+            utxo_hash = utxo['prevout_hash'] + str(utxo['prevout_n'])
+            if utxo_hash in checked_utxos:
+                utxo_item.setCheckState(0, Qt.checked)
+            else:
+                utxo_item.setCheckState(0, Qt.Unchecked)
+            self.addChild(utxo_item)
 
-    def get_input_address(self):
-        if len(self.inputsArray) > 0:
-            return self.inputsArray[self.currentIndex()]['address']
-        else:
-            return None
+    def get_checked_utxos(self):
+        utxos = []
+        number_of_items = self.topLevelItemCount()
+        for index in range(number_of_items):
+            item_state = self.topLevelItem(index).checkState(0)
+            if item_state == Qt.Checked:
+                utxos.append(self.inputsArray[index])
+        return utxos
 
-    def get_input_address_as_string(self, fmt=Address.FMT_LEGACY):
-        return self.inputsArray[self.currentIndex()]['address'].to_string(fmt)
+    def get_selected_amount(self):
+        utxos = self.get_checked_utxos()
+        utxos_amount = [ utxo["value"] for utxo in utxos ]
+        return sum(utxos_amount)
 
-    def get_input_value(self):
-        i = self.currentIndex()
-        if i >= 0:
-            return self.inputsArray[self.currentIndex()]['value']
-        else:
-            return 0
+    def update(self, wallet):
+        old_hashes = [item["prevout_hash"] + str(item['prevout_n']) for item in self.inputsArray]
+        new_hashes = [utxo["prevout_hash"] + str(utxo['prevout_n']) for utxo in wallet.get_utxos()]
+        checked_hashes = [utxo["prevout_hash"] + str(utxo['prevout_n']) for utxo in self.get_checked_utxos()]
+        if set(new_hashes) != set(old_hashes):
+            self.setItems(wallet, checked_utxos = checked_hashes)
+
+
 
 class OutputAdressWidget(QComboBox):
 

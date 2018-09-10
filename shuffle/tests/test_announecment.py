@@ -25,9 +25,15 @@ class TestProtocol(TestProtocolCase):
         self.assertIn('Error: The same keys appears!', last_messages)
 
     def test_002_insufficient_funds(self):
+        from electroncash_plugins.shuffle.coin import Coin
+        coin = Coin(self.network)
         protocolThreads = self.make_clients_threads(with_print = True)
-        bad_addr = public_key_to_p2pkh(bytes.fromhex(protocolThreads[0].vk))
-        self.network.coins[bad_addr][0]['value'] = self.amount - 1
+        coins_1 = coin.get_coins(protocolThreads[0].inputs)
+        for pubkey in coins_1:
+            bad_addr = public_key_to_p2pkh(bytes.fromhex(pubkey))
+            for coin in coins_1[pubkey]:
+                coin['value'] = 0
+            self.network.coins[bad_addr] = coins_1[pubkey]
         self.start_protocols(protocolThreads)
         done = False
         while not done:

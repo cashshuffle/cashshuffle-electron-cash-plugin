@@ -184,16 +184,13 @@ class Messages(object):
         packet = self.packets.packet.add()
         packet.packet.message.hash.hash = hash_value
 
-    # def add_signature(self, signature):
-    #     "adds signature to NEW packet"
-    #     packet = self.packets.packet.add()
-    #     packet.packet.message.signature.signature = signature
-
     def add_signatures(self, signatures):
         "adds signatures to NEW packet"
         packet = self.packets.packet.add()
         for k in signatures:
-            packet.packet.message.signatures[k].signature = signatures[k]
+            packet.packet.message.signatures.add()
+            packet.packet.message.signatures[-1].utxo = k
+            packet.packet.message.signatures[-1].signature.signature = signatures[k]
 
     def shuffle_packets(self):
         "shuffle the packets"
@@ -268,7 +265,7 @@ class Messages(object):
         result = {}
         signatures = self.packets.packet[-1].packet.message.signatures
         for k in signatures:
-            result[k] = signatures[k].signature
+            result[k.utxo] = k.signature.signature
         return result
 
     @check_for_length

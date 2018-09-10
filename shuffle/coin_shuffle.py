@@ -1,6 +1,3 @@
-class BlameException(Exception):
-    pass
-
 class Round(object):
     """
     A single round of the protocol. It is possible that the players may go through
@@ -287,6 +284,7 @@ class Round(object):
             self.send_message()
             self.log_message("send transction signatures")
 
+
     def process_verification_and_submission(self):
         """
         This function implemens processing of messages on verification and submission phase (phase # 6)
@@ -300,6 +298,7 @@ class Round(object):
         Normally protocol should ends here.
         """
         phase = self.messages.phases[self.phase]
+
         if self.is_inbox_complete(phase):
             self.signatures = {}
             self.log_message("got transction signatures")
@@ -320,18 +319,6 @@ class Round(object):
                         self.done = True
                         return
                     self.signatures.update(player_signatures)
-            #     self.signatures[self.players[player]] = player_signatures
-            #     check = self.coin.verify_tx_signature(player_signature,
-            #                                           self.transaction,
-            #                                           self.players[player])
-            #     if not check:
-            #         self.messages.blame_wrong_transaction_signature(self.players[player])
-            #         self.send_message()
-            #         self.logchan.send('Blame: wrong transaction signature from player ' +
-            #                           str(player))
-            #         self.done = True
-            #         return
-            #         # raise BlameException('Wrong tx signature from player ' + str(player))
             self.coin.add_transaction_signatures(self.transaction, self.signatures)
             msg, status = self.coin.broadcast_transaction(self.transaction)
             if msg == None and status == None:
@@ -377,6 +364,8 @@ class Round(object):
             for sender in messages:
                 self.messages.packets.ParseFromString(messages[sender])
                 self.check_reasons_and_accused(reason)
+            accused = self.messages.get_accused_key()
+            del self.inputs[accused]
             self.ban_the_liar(self.messages.get_accused_key())
             self.inbox[self.messages.phases["Blame"]] = {}
             self.broadcast_new_key()
@@ -594,10 +583,9 @@ class Round(object):
         """
         for sig, msg, player in self.messages.get_signatures_and_packets():
             if not self.coin.verify_signature(sig, msg, player):
-                self.messages.blame_invalid_signature(self.players[player])
+                self.messages.blame_invalid_signature(player)
                 self.send_message()
                 self.logchan.send('Blame: player ' + player + ' message with wrong signature!')
-                # raise BlameException('Player ' + player + ' message with wrong signature!')
 
     def ban_the_liar(self, accused):
         """Send message to server for banning the player which verification key is accused"""
@@ -631,18 +619,12 @@ class Round(object):
 
         for player in self.inputs:
             is_funds_sufficient = self.coin.check_inputs_for_sufficient_funds(self.inputs[player], self.amount + self.fee)
-            # print("{} {}".format(player, is_funds_sufficient))
-        # for player in self.players:
-        #     address = self.coin.address(self.players[player])
-        #     is_funds_sufficient = self.coin.sufficient_funds(address, self.amount + self.fee)
             if is_funds_sufficient == None:
                 self.logchan.send("Error: blockchain network fault!")
                 self.done = True
                 return None
-            # if not self.coin.sufficient_funds(address, self.amount + self.fee):
             elif not is_funds_sufficient:
                 offenders.append(player)
-        #
         if len(offenders) == 0:
             self.log_message("finds sufficient funds")
             return True

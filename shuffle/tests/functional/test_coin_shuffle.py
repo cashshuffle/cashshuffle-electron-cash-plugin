@@ -43,38 +43,38 @@ class TestRound(unittest.TestCase):
         self.inputs = {
             self.verification_keys[0]:{
                 self.public_keys[0]:[
-                    fake_hash(self.addresses[0], 500),
-                    fake_hash(self.addresses[0], 100)
+                    fake_hash(self.addresses[0], 500) + ":0",
+                    fake_hash(self.addresses[0], 100) + ":0"
                 ],
                 self.public_keys[1]:[
-                    fake_hash(self.addresses[1], 500)
+                    fake_hash(self.addresses[1], 500) + ":0"
                 ]
             },
             self.verification_keys[1]:{
                 self.public_keys[2]:[
-                    fake_hash(self.addresses[2], 1000),
-                    fake_hash(self.addresses[2], 100)
+                    fake_hash(self.addresses[2], 1000) + ":0",
+                    fake_hash(self.addresses[2], 100) + ":0"
                 ],
             },
             self.verification_keys[2]:{
                 self.public_keys[3]:[
-                    fake_hash(self.addresses[3], 1000)
+                    fake_hash(self.addresses[3], 1000) + ":0"
                 ],
                 self.public_keys[4]:[
-                    fake_hash(self.addresses[4], 100)
+                    fake_hash(self.addresses[4], 100) + ":0"
                 ],
             },
             self.verification_keys[3]:{
                 self.public_keys[5]:[
-                    fake_hash(self.addresses[5], 10000)
+                    fake_hash(self.addresses[5], 10000) + ":0"
                 ],
             },
             self.verification_keys[4]:{
                 self.public_keys[6]:[
-                    fake_hash(self.addresses[6], 1000)
+                    fake_hash(self.addresses[6], 1000) + ":0"
                 ],
                 self.public_keys[7]:[
-                    fake_hash(self.addresses[7], 500)
+                    fake_hash(self.addresses[7], 500) + ":0"
                 ]
             }
         }
@@ -120,7 +120,7 @@ class TestRound(unittest.TestCase):
     def test_002_blame_insufficient_funds(self):
         self.assertTrue(self.round.blame_insufficient_funds())
         self.assertEquals(self.logchan.get(), "Player 1 finds sufficient funds")
-        self.round.inputs[self.round.players[1]][self.public_keys[1]][0] = fake_hash(self.addresses[1], 100)
+        self.round.inputs[self.round.players[1]][self.public_keys[1]][0] = fake_hash(self.addresses[1], 100)+":0"
         self.assertFalse(self.round.blame_insufficient_funds())
         self.assertEquals(self.logchan.get(), "Blame: insufficient funds of player 1")
         self.assertIsNotNone(self.outchan.get(timeout=0))

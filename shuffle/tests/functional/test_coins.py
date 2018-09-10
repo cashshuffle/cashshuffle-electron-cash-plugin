@@ -6,6 +6,7 @@ imp.load_module('electroncash_plugins', *imp.find_module('plugins'))
 
 from electroncash_plugins.shuffle.coin import Coin, address_from_public_key
 from electroncash_plugins.shuffle.tests.test import testNetwork, random_sk, make_fake_public_key, make_fake_address, fake_hash
+from electroncash_plugins.shuffle.messages import Messages
 from electroncash.bitcoin import Hash
 from electroncash.address import Address
 
@@ -29,10 +30,11 @@ class TestCoin(unittest.TestCase):
         address_x = "111111111111111111111111111"
         inputs = {
             pubkey_1:[
-                fake_hash(address_1, 1000),
-                fake_hash(address_1, 100)
+                fake_hash(address_1, 1000) + ":0",
+                fake_hash(address_1, 100)  + ":0"
                 ],
-            pubkey_2:[fake_hash(address_2, 1000)]
+            pubkey_2:[
+                fake_hash(address_2, 1000) + ":0"]
             }
         self.assertTrue(self.coin.check_inputs_for_sufficient_funds(inputs, 2022))
         self.assertFalse(self.coin.check_inputs_for_sufficient_funds(inputs, 20022))
@@ -41,15 +43,16 @@ class TestCoin(unittest.TestCase):
         bad_address_input = {Hash("pubkey_111").hex():["a111h1"]}
         self.assertIsNone(self.coin.check_inputs_for_sufficient_funds(bad_address_input, 2222))
 
+
     def test_002_get_coins(self):
         pubkey_1, pubkey_2, pubkey_3 = self.public_keys[0:3]
         address_1, address_2, address_3 = self.addresses[0:3]
         inputs = {
             pubkey_1:[
-                fake_hash(address_1, 1000),
-                fake_hash(address_1, 100)
+                fake_hash(address_1, 1000)+":0",
+                fake_hash(address_1, 100)+":0"
                 ],
-            pubkey_2:[fake_hash(address_2, 1000)]
+            pubkey_2:[fake_hash(address_2, 1000)+":0"]
             }
         coins = self.coin.get_coins(inputs)
         self.assertEquals(coins[pubkey_1][0]["value"], 1000)
@@ -73,24 +76,24 @@ class TestCoin(unittest.TestCase):
             "player_1_vk":
             {
                 pubkey_1:[
-                    fake_hash(address_1, 500),
-                    fake_hash(address_1, 100),
+                    fake_hash(address_1, 500) + ":0",
+                    fake_hash(address_1, 100) + ":0",
                 ],
                 pubkey_2:[
-                    fake_hash(address_2, 500),
+                    fake_hash(address_2, 500) + ":0",
                 ]
             },
             "player_2_vk":
             {
                 pubkey_3:[
-                    fake_hash(address_3, 1000),
-                    fake_hash(address_3, 100),
+                    fake_hash(address_3, 1000) + ":0" ,
+                    fake_hash(address_3, 100) + ":0",
                 ]
             },
             "player_3_vk":
             {
                 pubkey_4:[
-                    fake_hash(address_4, 10000),
+                    fake_hash(address_4, 10000)+ ":0",
                 ]
             }
         }
@@ -99,13 +102,14 @@ class TestCoin(unittest.TestCase):
         transaction = self.coin.make_unsigned_transaction(amount, fee, inputs, outputs, changes)
 
         flat_inputs = [
-            {"public_key": pubkey_1, "address": address_1, "tx_hash": inputs["player_1_vk"][pubkey_1][0], "value": 500},
-            {"public_key": pubkey_1, "address": address_1, "tx_hash": inputs["player_1_vk"][pubkey_1][1], "value": 100},
-            {"public_key": pubkey_2, "address": address_2, "tx_hash": inputs["player_1_vk"][pubkey_2][0], "value": 500},
-            {"public_key": pubkey_3, "address": address_3, "tx_hash": inputs["player_2_vk"][pubkey_3][0], "value": 1000},
-            {"public_key": pubkey_3, "address": address_3, "tx_hash": inputs["player_2_vk"][pubkey_3][1], "value": 100},
-            {"public_key": pubkey_4, "address": address_4, "tx_hash": inputs["player_3_vk"][pubkey_4][0], "value": 10000},
+            {"public_key": pubkey_1, "address": address_1, "tx_hash": inputs["player_1_vk"][pubkey_1][0].split(":")[0], "value": 500},
+            {"public_key": pubkey_1, "address": address_1, "tx_hash": inputs["player_1_vk"][pubkey_1][1].split(":")[0], "value": 100},
+            {"public_key": pubkey_2, "address": address_2, "tx_hash": inputs["player_1_vk"][pubkey_2][0].split(":")[0], "value": 500},
+            {"public_key": pubkey_3, "address": address_3, "tx_hash": inputs["player_2_vk"][pubkey_3][0].split(":")[0], "value": 1000},
+            {"public_key": pubkey_3, "address": address_3, "tx_hash": inputs["player_2_vk"][pubkey_3][1].split(":")[0], "value": 100},
+            {"public_key": pubkey_4, "address": address_4, "tx_hash": inputs["player_3_vk"][pubkey_4][0].split(":")[0], "value": 10000},
         ]
+        flat_inputs.sort(key=lambda x:x["tx_hash"])
         for i, input in enumerate(transaction.inputs()):
             self.assertEquals(input['value'], flat_inputs[i]['value'])
             self.assertEquals(input['tx_hash'], flat_inputs[i]['tx_hash'])
@@ -132,22 +136,22 @@ class TestCoin(unittest.TestCase):
         address_1, address_2, address_3, address_4 = self.addresses[0:4]
         inputs_vk_1 = {
             pubkey_1:[
-                fake_hash(address_1, 500),
-                fake_hash(address_1, 100),
+                fake_hash(address_1, 500)+":0",
+                fake_hash(address_1, 100)+":0",
             ],
             pubkey_2:[
-                fake_hash(address_2, 500),
+                fake_hash(address_2, 500)+":0",
             ]
         }
         inputs_vk_2 = {
             pubkey_3:[
-                fake_hash(address_3, 1000),
-                fake_hash(address_3, 100),
+                fake_hash(address_3, 1000)+":0",
+                fake_hash(address_3, 100)+":0",
             ]
         }
         inputs_vk_3 = {
             pubkey_4:[
-                fake_hash(address_4, 10000),
+                fake_hash(address_4, 10000)+":0",
             ]
         }
         inputs = {

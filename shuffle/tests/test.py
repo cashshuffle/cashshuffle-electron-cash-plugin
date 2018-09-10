@@ -60,12 +60,13 @@ class testThread(ProtocolThread):
         inputs = {pubkey:[coin_hash]}
         return cls(host, port, network, amount, fee, sk, sks, inputs, pubk, addr_new, change, ssl=ssl, logger = logger)
 
-    @classmethod
-    def from_sk(cls, sk, coin_hash, host, port, network, amount, fee, addr_new, change, compressed = True, logger = None):
-        pubk = sk.get_public_key(compressed)
-        sks = {pubk:sk}
-        inputs = {pubk:[coin_hash]}
-        return cls(host, port, network, amount, fee, sk, sks, inputs, pubk, addr_new, change, logger = logger)
+    # @classmethod
+    # def from_sk(cls, sk, sks, pubk, inputs, host, port, network, amount, fee, addr_new, change, compressed = True, logger = None):
+    #     # pubk = sk.get_public_key(compressed)
+    #     # sks = {pubk:sk}
+    #     # inputs = {pubk:[coin_hash]}
+    #     return cls(host, port, network, amount, fee,
+    #                sk, sks, inputs, pubk, addr_new, change, logger=logger)
 
 class random_sk(EC_KEY):
 
@@ -480,20 +481,68 @@ class TestProtocolCase(unittest.TestCase):
     def make_clients_threads(self, number_of_clients = None, with_print = False):
         if not number_of_clients:
             number_of_clients = self.number_of_players
-        # generate random keys
-        players = [{"sk": random_sk(), "channel":ChannelWithPrint() if with_print else Channel()}  for sk in range(number_of_clients)]
-        # loggers = [Channel() for _ in range(self.number_of_players)]
+        # For every player!
+        players = [{"channel":ChannelWithPrint() if with_print else Channel()}
+                   for _ in range(number_of_clients)]
         for player in players:
-            pubk = player["sk"].get_public_key()
-            addr = public_key_to_p2pkh(bytes.fromhex(pubk))
-            # add coins to pseudonetwork with sufficient ammount
-            coin_amount = self.amount + random.randint(self.amount + 1 , self.amount + self.fee + 1000)
-            player["coin_hash"] = fake_hash(addr, coin_amount)
-            self.network.add_coin(addr , coin_amount, tx_hash=player["coin_hash"])
+            number_of_pubs = random.randint(1,3)
+            player["secret_keys"] = [random_sk() for _ in range(number_of_pubs)]
+            player["sks"] = {sk.get_public_key():sk for sk in player["secret_keys"]}
+            player["inputs"] = {}
+            for pubk in player["sks"]:
+                player["inputs"][pubk]=[]
+                number_of_coins = random.randint(1,2)
+                addr = public_key_to_p2pkh(bytes.fromhex(pubk))
+                for i in range(number_of_coins):
+                    min_amout_per_input = self.amount // number_of_pubs // number_of_coins
+                    coin_amount = random.randint(min_amout_per_input + self.fee + 1 , min_amout_per_input + self.fee + 1000)
+                    coin_hash = fake_hash(addr, coin_amount)
+                    player["inputs"][pubk].append(coin_hash+":0")
+                    self.network.add_coin(addr, coin_amount, tx_hash=coin_hash)
+            player["sk"] = random_sk()
+            player["pubk"] = player["sk"].get_public_key()            
+            # player["pubk"] = list(player["sks"].keys())[0]
+            # player['sk'] = player["sks"][player["pubk"]]
+        # def __init__(self, host, port, network, amount,
+        #              fee, sk, sks, inputs, pubk,
+        #              addr_new, change, logger = None, ssl = False):
+
+        protocolThreads = [testThread(self.HOST, self.PORT, self.network, self.amount,  self.fee,
+                                      player["sk"], player["sks"], player["inputs"], player["pubk"],
+                                      self.get_random_address(), self.get_random_address(), logger = player['channel'])
+                                      for player in players]
+
+        # import pprint
+        # pp = pprint.PrettyPrinter(width=41, compact=False)
+        # pp.pprint([player["channel"] for player in players])
+        # # >> generate random keys
+        # >> generate sks
+        # >> form pubs
+        # >> generate coins
+        # >> form sks structure
+        # >> form inputs structure
+        # >> form sk
+        # >> from vk
+        # >> add coins to pseudonetwork
+        # >> form protocol Threads
+        return protocolThreads
+
+
+
+        # # generate random keys
+        # players = [{"sk": random_sk(), "channel":ChannelWithPrint() if with_print else Channel()}  for sk in range(number_of_clients)]
+        # # loggers = [Channel() for _ in range(self.number_of_players)]
+        # for player in players:
+        #     pubk = player["sk"].get_public_key()
+        #     addr = public_key_to_p2pkh(bytes.fromhex(pubk))
+        #     # add coins to pseudonetwork with sufficient ammount
+        #     coin_amount = self.amount + random.randint(self.amount + 1 , self.amount + self.fee + 1000)
+        #     player["coin_hash"] = fake_hash(addr, coin_amount)
+        #     self.network.add_coin(addr , coin_amount, tx_hash=player["coin_hash"])
 
         # make threads
-        protocolThreads = [testThread.from_sk(player["sk"], player["coin_hash"] ,self.HOST, self.PORT, self.network, self.amount, self.fee, self.get_random_address(), self.get_random_address(), logger = player['channel']) for player in players]
-        return protocolThreads
+        # protocolThreads = [testThread.from_sk(player["sk"], player["coin_hash"]+":0" ,self.HOST, self.PORT, self.network, self.amount, self.fee, self.get_random_address(), self.get_random_address(), logger = player['channel']) for player in players]
+        # return protocolThreads
 
     def start_protocols(self, protocolThreads, delay = 0):
         for pThread in protocolThreads:

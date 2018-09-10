@@ -99,7 +99,6 @@ class ProtocolThread(threading.Thread):
                          + str(self.number_of_players) +" players.\n")
         #Share the keys
         self.messages.clear_packets()
-        # self.messages.packets.packet.add()
         self.messages.add_inputs(self.inputs)
         self.messages.packets.packet[-1].packet.from_key.key = self.vk
         self.messages.packets.packet[-1].packet.session = self.session
@@ -114,8 +113,6 @@ class ProtocolThread(threading.Thread):
         for _ in range(self.number_of_players):
             messages += self.outcome.recv()
         self.messages.packets.ParseFromString(messages)
-        # self.players = {packet.packet.number:str(packet.packet.from_key.key)
-        #                 for packet in self.messages.packets.packet}
         for packet in self.messages.packets.packet:
             player_number = packet.packet.number
             player_key = str(packet.packet.from_key.key)
@@ -139,24 +136,12 @@ class ProtocolThread(threading.Thread):
         begin_phase = Phase('Announcement')
         # Make Round
         self.protocol = Round(
-            coin,
-            crypto,
-            self.messages,
-            self.outcome,
-            self.income,
-            self.logger,
-            self.session,
-            begin_phase,
-            self.amount,
-            self.fee,
-            self.sk,
-            self.sks,
-            self.all_inputs,
-            self.vk,
-            self.players,
-            self.addr_new,
-            self.change)
-        # self.execution_thread = threading.Thread(target=self.protocol.protocol_loop)
+            coin, crypto, self.messages,
+            self.outcome, self.income, self.logger,
+            self.session, begin_phase, self.amount, self.fee,
+            self.sk, self.sks, self.all_inputs, self.vk,
+            self.players, self.addr_new, self.change
+        )
         self.execution_thread = threading.Thread(target=self.protocol.start_protocol)
         self.execution_thread.start()
         self.done.wait()

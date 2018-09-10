@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 #
 # Electrum - Lightweight Bitcoin Client
@@ -41,7 +42,7 @@ from electroncash.i18n import _
 from electroncash_gui.qt.util import EnterButton, Buttons, CloseButton
 from electroncash_gui.qt.util import OkButton, WindowModalDialog
 from electroncash.address import Address
-from .shuffle import InputAdressWidget, ChangeAdressWidget, OutputAdressWidget, ConsoleOutput, AmountSelect, ServersList, ExternalOutput, ConsoleLogger
+from .shuffle import ChangeAdressWidget, OutputAdressWidget, ConsoleOutput, AmountSelect, ServersList, ExternalOutput, ConsoleLogger, InputAddressesWidget
 from .client import bot_job, BotThread
 from .coin import Coin
 
@@ -83,18 +84,17 @@ class ShuffleWidget(QWidget):
         self.bot_period_value = 1
         self.bot_stopper = False
         # This is for debug
-        # self.coinshuffle_fee_constant = 1000
-
+        # self.coinshuffle_fee_constant = 10
+        #
         # self.coinshuffle_amounts = [1e7, 1e6]
         # Use this in test mode
-        self.coinshuffle_amounts = [1e5, 1e6, 1e7]
+        self.coinshuffle_amounts = [1e2, 1e5, 1e6, 1e7]
         self.shuffle_grid = QGridLayout()
         self.shuffle_grid.setSpacing(8)
         self.shuffle_grid.setColumnStretch(3, 1)
 
         self.coinshuffle_servers = ServersList()
         self.coinshuffle_enable_bot = QCheckBox(_('Use bot'))
-        self.coinshuffle_inputs = InputAdressWidget(decimal_point = self.window.get_decimal_point)
         self.coinshuffle_inputs_label = QLabel(_('Shuffle input address '))
         self.coinshuffle_changes = ChangeAdressWidget()
         self.coinshuffle_changes_label = QLabel(_('Shuffle change address'))
@@ -108,6 +108,8 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_amount_label = QLabel(_('Amount'))
         self.coinshuffle_text_output = ConsoleOutput()
         self.coinshuffle_timer_output = QLabel()
+
+        self.coinshuffle_inputs_list = InputAddressesWidget(decimal_point = self.window.get_decimal_point, parent = self.window)
 
         self.coinshuffle_bot_limit = QLineEdit()
         self.coinshuffle_bot_limit.setValidator(QIntValidator(1,100))
@@ -136,12 +138,13 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_bot_start_button.hide()
         self.coinshuffle_bot_stop_button.hide()
 
-        self.coinshuffle_inputs.currentIndexChanged.connect(self.check_sufficient_ammount)
+        self.coinshuffle_inputs_list.clicked.connect(self.check_sufficient_ammount)
         self.coinshuffle_amount_radio.button_group.buttonClicked.connect(self.check_sufficient_ammount)
         self.coinshuffle_fresh_changes.stateChanged.connect(lambda: self.coinshuffle_changes.update(self.window.wallet, fresh_only = self.coinshuffle_fresh_changes.isChecked()))
         self.coinshuffle_use_external_output.stateChanged.connect(lambda: self.coinshuffle_change_outputs(self.coinshuffle_use_external_output.isChecked()))
         self.coinshuffle_external_output.textChanged.connect(self.check_sufficient_ammount)
         self.coinshuffle_enable_bot.stateChanged.connect(self.switch_bot)
+
 
         self.coinshuffle_start_button = EnterButton(_("Shuffle"),lambda :self.start_coinshuffle_protocol())
         self.coinshuffle_cancel_button = EnterButton(_("Cancel"),lambda :self.cancel_coinshuffle_protocol())
@@ -159,7 +162,7 @@ class ShuffleWidget(QWidget):
         self.shuffle_grid.addWidget(self.coinshuffle_fresh_changes, 4, 1)
         self.shuffle_grid.addWidget(self.coinshuffle_use_external_output, 6, 1)
         self.shuffle_grid.addWidget(self.coinshuffle_external_output, 7, 1, 1, -1)
-        self.shuffle_grid.addWidget(self.coinshuffle_inputs,2,1,1,-1)
+        self.shuffle_grid.addWidget(self.coinshuffle_inputs_list, 2, 1, 1, -1)
         self.shuffle_grid.addWidget(self.coinshuffle_changes,3,1,1,-1)
         self.shuffle_grid.addWidget(self.coinshuffle_outputs,5,1,1,-1)
         self.shuffle_grid.addWidget(self.coinshuffle_amount_radio,8,1)
@@ -178,6 +181,7 @@ class ShuffleWidget(QWidget):
         self.shuffle_grid.addWidget(self.coinshuffle_bot_start_button, 5, 0)
         self.shuffle_grid.addWidget(self.coinshuffle_bot_stop_button, 5, 1)
 
+        self.shuffle_grid.addWidget(self.coinshuffle_inputs_list, 12, 1, 1, -1)
 
         vbox0 = QVBoxLayout()
         vbox0.addLayout(self.shuffle_grid)
@@ -251,7 +255,7 @@ class ShuffleWidget(QWidget):
 
     def switch_bot(self, checked):
         if checked:
-            self.coinshuffle_inputs.hide()
+            self.coinshuffle_inputs_list.hide()
             self.coinshuffle_inputs_label.hide()
             self.coinshuffle_changes.hide()
             self.coinshuffle_changes_label.hide()
@@ -286,7 +290,7 @@ class ShuffleWidget(QWidget):
             self.coinshuffle_bot_start_button.hide()
             self.coinshuffle_bot_stop_button.hide()
 
-            self.coinshuffle_inputs.show()
+            self.coinshuffle_inputs_list.show()
             self.coinshuffle_inputs_label.show()
             self.coinshuffle_changes.show()
             self.coinshuffle_changes_label.show()
@@ -302,8 +306,6 @@ class ShuffleWidget(QWidget):
             self.coinshuffle_timer_output.show()
 
 
-
-
     def coinshuffle_change_outputs(self, checked):
         if checked:
             self.coinshuffle_external_output.setEnabled(True)
@@ -315,7 +317,7 @@ class ShuffleWidget(QWidget):
 
     def update_inputs(self):
         if not self.coinshuffle_cancel_button.isEnabled():
-            self.coinshuffle_inputs.update(self.window.wallet)
+            self.coinshuffle_inputs_list.update(self.window.wallet)
             self.coinshuffle_outputs.update(self.window.wallet)
 
     def tick(self):
@@ -329,12 +331,13 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_servers.setItems()
         self.coinshufle_input_addrs = map(lambda x: x.get('address'),self.window.wallet.get_utxos())
         self.coinshuffle_outputs_addrs = map(lambda x: x.get('address'),self.window.wallet.get_utxos())
-        self.coinshuffle_inputs.setItmes(self.window.wallet)
+        self.coinshuffle_inputs_list.setItems(self.window.wallet)
         self.coinshuffle_changes.setItems(self.window.wallet)
         self.coinshuffle_outputs.setItems(self.window.wallet)
 
+
     def check_sufficient_ammount(self):
-        coin_amount = self.coinshuffle_inputs.get_input_value()
+        coin_amount = self.coinshuffle_inputs_list.get_selected_amount()
         shuffle_amount = self.coinshuffle_amount_radio.get_amount()
         fee = self.coinshuffle_fee_constant
         if shuffle_amount and fee:
@@ -351,7 +354,7 @@ class ShuffleWidget(QWidget):
     def enable_coinshuffle_settings(self):
         self.coinshuffle_servers.setEnabled(True)
         self.coinshuffle_start_button.setEnabled(True)
-        self.coinshuffle_inputs.setEnabled(True)
+        self.coinshuffle_inputs_list.setEnabled(True)
         self.coinshuffle_changes.setEnabled(True)
         self.coinshuffle_outputs.setEnabled(True)
         self.coinshuffle_amount_radio.setEnabled(True)
@@ -365,7 +368,7 @@ class ShuffleWidget(QWidget):
     def disable_coinshuffle_settings(self):
         self.coinshuffle_servers.setEnabled(False)
         self.coinshuffle_start_button.setEnabled(False)
-        self.coinshuffle_inputs.setEnabled(False)
+        self.coinshuffle_inputs_list.setEnabled(False)
         self.coinshuffle_changes.setEnabled(False)
         self.coinshuffle_outputs.setEnabled(False)
         self.coinshuffle_amount_radio.setEnabled(False)
@@ -382,7 +385,7 @@ class ShuffleWidget(QWidget):
             self.coinshuffle_text_output.append(message)
             self.enable_coinshuffle_settings()
             self.coinshuffle_cancel_button.setEnabled(False)
-            self.coinshuffle_inputs.update(self.window.wallet)
+            self.coinshuffle_inputs_list.update(self.window.wallet)
             self.coinshuffle_outputs.update(self.window.wallet)
             self.timer.stop()
         elif message[-17:] == "complete protocol":
@@ -395,7 +398,7 @@ class ShuffleWidget(QWidget):
                 print("No tx: " + str(tx.raw))
             self.enable_coinshuffle_settings()
             self.coinshuffle_cancel_button.setEnabled(False)
-            self.coinshuffle_inputs.update(self.window.wallet)
+            self.coinshuffle_inputs_list.update(self.window.wallet)
             self.coinshuffle_outputs.update(self.window.wallet)
         elif "begins" in message:
             self.timer.stop()
@@ -420,7 +423,6 @@ class ShuffleWidget(QWidget):
 
 
     def start_coinshuffle_protocol(self):
-
         from .client import ProtocolThread
         from electroncash.bitcoin import (regenerate_key, deserialize_privkey)
         from .shuffle import ConsoleLogger
@@ -445,12 +447,13 @@ class ShuffleWidget(QWidget):
         except:
             self.coinshuffle_text_output.setText('Wrong server connection string')
             return
-        input_address = self.coinshuffle_inputs.get_input_address()
+
+        inputs_utxos = self.coinshuffle_inputs_list.get_checked_utxos()
         possible_change_address = self.coinshuffle_changes.get_change_address()
         if possible_change_address:
             change_address = possible_change_address
         else:
-            change_address = self.coinshuffle_inputs.get_input_address_as_string()
+            change_address = inputs_utxos[0]['address'].to_string(Address.FMT_LEGACY)
         if self.coinshuffle_use_external_output.isChecked():
             output_address = self.coinshuffle_external_output.text()
         else:
@@ -458,15 +461,26 @@ class ShuffleWidget(QWidget):
         #disable inputs
         self.disable_coinshuffle_settings()
         self.coinshuffle_cancel_button.setEnabled(True)
-
+        #
         amount = self.coinshuffle_amount_radio.get_amount()
         fee = self.coinshuffle_fee_constant
         self.logger = ConsoleLogger()
         self.logger.logUpdater.connect(lambda x: self.process_protocol_messages(x))
-        priv_key = self.window.wallet.export_private_key(input_address, password)
-        pub_key = self.window.wallet.get_public_key(input_address)
-        sk = regenerate_key(deserialize_privkey(priv_key)[1])
-        self.pThread = ProtocolThread(server, port, self.window.network, amount, fee, sk, pub_key, output_address, change_address, logger = self.logger, ssl = ssl)
+        sks = {}
+        inputs = {}
+        for utxo in inputs_utxos:
+            public_key = self.window.wallet.get_public_key(utxo['address'])
+            priv_key = self.window.wallet.export_private_key(utxo['address'], password)
+            sks[public_key] = regenerate_key(deserialize_privkey(priv_key)[1])
+            if not public_key in inputs:
+                inputs[public_key] = []
+            inputs[public_key].append(utxo['prevout_hash']+ ":" + str(utxo['prevout_n']))
+        pub_key = list(inputs.keys())[0]
+        sk = sks[pub_key]
+        self.pThread = ProtocolThread(server, port, self.window.network,
+                                      amount, fee, sk, sks, inputs, pub_key,
+                                      output_address, change_address,
+                                      logger = self.logger, ssl = ssl)
         self.pThread.start()
         self.timer.start(1000)
 
