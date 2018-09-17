@@ -237,9 +237,10 @@ def bot_job(stat_endpoint, host, port, network, ssl,
             for good_utxo in good_utxos:
                 addr = Address.to_string(good_utxo['address'], Address.FMT_LEGACY)
                 try:
-                    first_utxo = coin.get_first_sufficient_utxo(addr, amount)
+                    first_utxo = good_utxos[0]
                     if first_utxo:
                         address = {}
+                        address.update({"utxo_for_spend": good_utxo['prevout_hash'] + ":" + str(good_utxo['prevout_n'])})
                         address.update({"input_address": good_utxo['address']})
                         address.update({"change_address": addr})
                         address.update({"shuffle_address": Address.to_string(fresh_outputs[0], Address.FMT_LEGACY)})
@@ -260,10 +261,15 @@ def bot_job(stat_endpoint, host, port, network, ssl,
                 for address in member.get("addresses"):
                     priv_key = wallet.export_private_key(address["input_address"], password)
                     sk, pubk = keys_from_priv(priv_key)
+                    sks = {pubk:sk}
+                    inputs = {pubk: [address["utxo_for_spend"]]}
                     new_addr = address["shuffle_address"]
                     change = address["change_address"]
                     logger = simple_logger(logchan=logchan)
-                    pThread = (ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger, ssl=ssl))
+                    # (self, host, port, network,
+                    #  amount, fee, sk, sks, inputs, pubk,
+                    #  addr_new, change, logger=None, ssl=False)
+                    pThread = (ProtocolThread(host, port, network, amount, fee, sk, sks, inputs, pubk, new_addr, change, logger=logger, ssl=ssl))
                     logger.pThread = pThread
                     pThreads.append(pThread)
         # start Threads

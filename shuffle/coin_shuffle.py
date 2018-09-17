@@ -378,7 +378,7 @@ class Round(object):
         1. Get messages from every player
         2. Restore what messages were sent and what messages was received
         3. Find if some player broadcast not the same values to the different players
-        4. If there is a cheater - cheater is bannedself.
+        4. If there is a cheater - cheater is banned
         5. Protocol starts without cheater
         """
         messages = self.inbox[phase]
@@ -427,6 +427,7 @@ class Round(object):
                     if ec in encryption_keys:
                         del self.inbox[phase_1][message]
                 for player in all_cheaters:
+                    del self.inputs[player]
                     self.ban_the_liar(player)
                 if self.vk not in all_cheaters:
                     self.inbox[self.messages.phases["Blame"]] = {}
@@ -481,6 +482,7 @@ class Round(object):
             cheater = self.check_for_shuffling()
             if cheater:
                 if cheater != self.vk:
+                    del self.inputs[cheater]
                     self.ban_the_liar(cheater)
                     self.players = {player:self.players[player]
                                     for player in self.players

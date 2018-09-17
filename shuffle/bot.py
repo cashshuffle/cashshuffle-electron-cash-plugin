@@ -13,7 +13,6 @@ from electroncash.network import Network, SimpleConfig
 from electroncash.address import Address
 from electroncash.bitcoin import deserialize_privkey, regenerate_key
 from electroncash.networks import NetworkConstants
-# from electroncash_plugins.shuffle.client import ProtocolThread
 from electroncash_plugins.shuffle.client import bot_job
 from electroncash_plugins.shuffle.coin import Coin
 from electroncash.storage import WalletStorage
@@ -34,7 +33,6 @@ def parse_args():
     parser.add_argument("-W", "--wallet", help="wallet", type=str, required=True)
     parser.add_argument("--password", help="wallet password", type=str, default ="")
     parser.add_argument("-T", "--period", help="period for checking the server in minutes", type=int, default=10)
-    # test_params = "--testnet -P 33333 -S localhost -I 5000 -W plugins/shuffle/wallet/test_wallet --password testwallet -L 2".split()
     return parser.parse_args()
 
 def keys_from_priv(priv_key):
@@ -67,83 +65,6 @@ class SimpleLogger(object):
                 pass
             else:
                 self.pThread.done.set()
-
-# def job():
-#     job_start_time = time()
-#     pools = []
-#     pool_size = None
-#     try:
-#         res = requests.get(stat_endpoint, verify=False)
-#         pools = res.json().get("pools", [])
-#         pool_size = res.json().get("PoolSize", None)
-#     except:
-#         basic_logger.send("[CashShuffle Bot] Stat server not respond")
-#         return
-#     if len(pools) > 0:
-#         # Select not full pools with members more then limit
-#         members = [pool for pool in pools
-#                    if not pool.get("full", False) and
-#                    pool.get("members", 0) >= args.limit]
-#         # Select unspent outputs in the wallet
-#         utxos = wallet.get_utxos(exclude_frozen=True, confirmed_only=False)
-#         # Select fresh inputs
-#         fresh_outputs = wallet.get_unused_addresses()
-#         if len(members) == 0:
-#             basic_logger.send("[CashShuffle] No pools sutisfiying the requirments")
-#         else:
-#             basic_logger.send("[CashShuffle] Trying to support {} pools".format(len(members)))
-#         for member in members:
-#             number_of_players = member['members']
-#             threshold = min(number_of_players + args.maximum_per_pool, pool_size)
-#             member.update({"addresses" : []})
-#             amount = member['amount'] + fee
-#             good_utxos = [utxo for utxo in utxos if utxo['value'] > amount]
-#             for good_utxo in good_utxos:
-#                 addr = Address.to_string(good_utxo['address'], Address.FMT_LEGACY)
-#                 try:
-#                     first_utxo = coin.get_first_sufficient_utxo(addr, amount)
-#                     if first_utxo:
-#                         address = {}
-#                         address.update({"input_address": good_utxo['address']})
-#                         address.update({"change_address": addr})
-#                         address.update({"shuffle_address": Address.to_string(fresh_outputs[0], Address.FMT_LEGACY)})
-#                         member['addresses'].append(address)
-#                         del fresh_outputs[0]
-#                         utxos.remove(good_utxo)
-#                         number_of_players += 1
-#                         if number_of_players == threshold:
-#                             break
-#                 except Exception as e:
-#                     basic_logger.send("[CashShuffle Bot] {}".format(e))
-#                     basic_logger.send("[CashShuffle Bot] Network problems")
-#         # Define Protocol threads
-#         pThreads = []
-#         for member in members:
-#             amount = member["amount"]
-#             if member.get("addresses", None):
-#                 for address in member.get("addresses"):
-#                     priv_key = wallet.export_private_key(address["input_address"], password)
-#                     sk, pubk = keys_from_priv(priv_key)
-#                     new_addr = address["shuffle_address"]
-#                     change = address["change_address"]
-#                     logger = SimpleLogger()
-#                     pThread = (ProtocolThread(host, port, network, amount, fee, sk, pubk, new_addr, change, logger=logger, ssl=ssl))
-#                     logger.pThread = pThread
-#                     pThreads.append(pThread)
-#         # start Threads
-#         for pThread in pThreads:
-#             pThread.start()
-#         done = False
-#         while not done:
-#             sleep(1)
-#             done = all([is_protocol_done(pThread) for pThread in pThreads])
-#             if (time() - job_start_time) > 1000:
-#                 "Protocol execution Time Out"
-#                 done = True
-#         for pThread in pThreads:
-#             pThread.join()
-#     else:
-#         basic_logger.send("[CashShuffle Bot] Nobody in the pools")
 
 def job():
     bot_job(stat_endpoint, host, port, network, ssl, args.limit, args.maximum_per_pool, basic_logger, SimpleLogger, wallet, password, coin, fee)

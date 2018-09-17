@@ -5,18 +5,18 @@ import time
 class TestProtocol(TestProtocolCase):
 
     def test_001_cheat_in_sending_different_keys(self):
-        protocolThreads = self.make_clients_threads(with_print = True, number_of_clients = self.number_of_players - 1)
+        good_threads = self.make_clients_threads(with_print = True, number_of_clients = self.number_of_players - 1)
         bad_thread = self.make_bad_client(bad_client_wrong_broadcast, with_print = True)
-        protocolThreads.append(bad_thread)
+        protocolThreads = good_threads + [bad_thread]
         random.shuffle(protocolThreads)
         self.start_protocols(protocolThreads)
         done = False
         while not done:
-            completes = [self.is_protocol_complete(p) for p in protocolThreads[:-1]]
+            completes = [self.is_protocol_complete(p) for p in good_threads]
             done = all(completes)
         self.stop_protocols(protocolThreads)
-        tx = protocolThreads[0].protocol.tx.raw
-        for pThread in protocolThreads[1:-1]:
+        tx = good_threads[0].protocol.tx.raw
+        for pThread in good_threads[1:]:
             self.assertEqual(tx, pThread.protocol.tx.raw)
 
     def test_002_cheat_in_sending_different_outputs(self):
