@@ -79,10 +79,12 @@ class InputAddressesWidget(QTreeWidget):
         self.insertChild = self.insertTopLevelItem
         self.editor = None
         self.set_headers()
+        self.setSortingEnabled(True)
 
     def set_headers(self):
-        self.setColumnCount(2)
-        self.setHeaderLabels(["Address", "Amount"])
+        self.setColumnCount(3)
+        self.hideColumn(2)
+        self.setHeaderLabels(["Address", "Amount", "UTXO:num"])
         self.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
 
     def setItems(self, wallet, checked_utxos = []):
@@ -92,8 +94,8 @@ class InputAddressesWidget(QTreeWidget):
             address = utxo['address']
             address_text = address.to_ui_string()
             amount = self.parent.format_amount(utxo['value'])
-            utxo_item = SortableTreeWidgetItem([address_text, amount])
             utxo_hash = utxo['prevout_hash'] + str(utxo['prevout_n'])
+            utxo_item = SortableTreeWidgetItem([address_text, amount, utxo_hash])
             if utxo_hash in checked_utxos:
                 utxo_item.setCheckState(0, Qt.checked)
             else:
@@ -101,13 +103,14 @@ class InputAddressesWidget(QTreeWidget):
             self.addChild(utxo_item)
 
     def get_checked_utxos(self):
-        utxos = []
+        utxo_hashes = []
         number_of_items = self.topLevelItemCount()
         for index in range(number_of_items):
-            item_state = self.topLevelItem(index).checkState(0)
-            if item_state == Qt.Checked:
-                utxos.append(self.inputsArray[index])
-        return utxos
+            item = self.topLevelItem(index)
+            if item.checkState(0) == Qt.Checked:
+                utxo_hash = item.text(2)
+                utxo_hashes.append(utxo_hash)
+        return list(filter(lambda utxo: utxo["prevout_hash"] + str(utxo["prevout_n"]) in utxo_hashes, self.inputsArray)) if self.inputsArray else []
 
     def get_selected_amount(self):
         utxos = self.get_checked_utxos()
