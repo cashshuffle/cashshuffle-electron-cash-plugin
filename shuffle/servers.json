@@ -10,11 +10,5 @@
     "port" : 8080,
     "ssl"  : false,
     "info" : 8081
-  },
-  "localhost":
-  {
-    "port" : 33333,
-    "ssl"  : false,
-    "info" : 5000
   }
 }
