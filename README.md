@@ -43,7 +43,7 @@ Replace this text with
 
 1. Choose server from servers list
 
-3. Use `Shuffle input address` to choose coin which you want to shuffle. This list of coins is formed from  the UTXO's of your wallet.
+3. Use `Shuffle input addresses` to choose coins which you want to shuffle. This list of coins is formed from  the UTXO's of your wallet.
 
 4. From `Shuffle change address` choose the address for your change. You can leave this as the default setting if you want to use input address as change address. If you wish to use change addresses which not been used before check the `use only fresh change aderesses` checkbox.
 
@@ -94,13 +94,13 @@ pip install schedule
 Then you should run the bot itself. Do it from electron-cash root directory:
 
 ```
-python3 plugins/shuffle/bot.py -S cashshuffle_server_name -P cashshuffle_port_number -I cashshuffle_info_port -W path_to_wallet 
+python3 plugins/shuffle/bot.py -S cashshuffle_server_name -P cashshuffle_port_number -I cashshuffle_info_port -W path_to_wallet
 ```
 
 Here `cashshuffle_server_name` is a cashshuffle server address. It should not contain protocol prefix like `http://` or `https://`. It also should not contain port srecifications like `:3000` or so. Specify the port numbers with `cashshuffle_port_number` and `cashshuffle_info_port` parameters. `path_to_wallet` is a path in the system where the wallet is. Here is how it can look like
 
 ```
-python3 plugins/shuffle/bot.py -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet 
+python3 plugins/shuffle/bot.py -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet
 ```
 
 It means we run a bot to support shuffling on the `http://cashshuffle.server.name:8080` server, which use port number 8081 for information and wallet with name `my_wallet` is placed in the electron-cash root
@@ -110,13 +110,13 @@ It means we run a bot to support shuffling on the `http://cashshuffle.server.nam
 Cashshuffle server can be run with `ssl` suport. You should use `--ssl` key to specify it:
 
 ```
-python3 plugins/shuffle/bot.py --ssl -S cashshuffle_server_name -P cashshuffle_port_number -I cashshuffle_info_port -W path_to_wallet 
+python3 plugins/shuffle/bot.py --ssl -S cashshuffle_server_name -P cashshuffle_port_number -I cashshuffle_info_port -W path_to_wallet
 ```
 
 Here is an example:
 
 ```
-python3 plugins/shuffle/bot.py --ssl -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet 
+python3 plugins/shuffle/bot.py --ssl -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet
 ```
 
 ### Specifying the testnet/mainnet
@@ -124,7 +124,7 @@ python3 plugins/shuffle/bot.py --ssl -S cashshuffle.server.name -P 8080 -I 8081 
 If you want to try it on testnet use `--testnet` key. Here is an example:
 
 ```
-python3 plugins/shuffle/bot.py --testnet -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet 
+python3 plugins/shuffle/bot.py --testnet -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet
 ```
 
 By default it operates on the mainnet.
@@ -136,7 +136,7 @@ You can set up the minimum number of players in the pool to support it with `-L`
 ```
 python3 plugins/shuffle/bot.py  -S cashshuffle.server.name -P 8080 -I 8081 -W my_wallet -L 1 -M 2 -F 1000
 ```
-It means we run bot which enters the mixing only if there is at least one player in the pool, and the bot can add 2 players maximum to the pool, and fee is set to be 1000 satoshi. By default this values are 1 fro `L` and `M` key and 1000 for `F` key. 
+It means we run bot which enters the mixing only if there is at least one player in the pool, and the bot can add 2 players maximum to the pool, and fee is set to be 1000 satoshi. By default this values are 1 fro `L` and `M` key and 1000 for `F` key.
 
 ### Specifying the wallet password
 
