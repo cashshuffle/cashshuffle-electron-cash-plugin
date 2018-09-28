@@ -6,38 +6,24 @@ WARNING: THIS IS PRE-RELEASE SOFTWARE. This has been made available to provide f
 
 ## Installation
 
-Ubuntu users can install using the following command. This command will install the latest version of Electron Cash with CashShuffle in your home directory.
+For installation of plugin do the follows:
 
-```
-cd ~/ && wget https://electroncash.org/downloads/3.0/win-linux/ElectronCash-3.0.tar.gz && tar -xvzf ElectronCash-3.0.tar.gz && rm -rf ElectronCash-3.0.tar.gz && wget https://github.com/cashshuffle/cashshuffle-electron-cash-plugin/archive/master.zip && unzip master.zip && rm -rf master.zip && mv cashshuffle-electron-cash-plugin-master/shuffle 'Electron Cash-3.0/plugins' && rm -rf cashshuffle-electron-cash-plugin-master && sed -i "s/'electroncash_plugins.virtualkeyboard',/'electroncash_plugins.virtualkeyboard', 'electroncash_plugins.shuffle',/" 'Electron Cash-3.0/setup.py' && cd 'Electron Cash-3.0' && sudo python3 setup.py install
-```
+1. Download the latest release of the plugin (it should be a zip file) from [here](/releases).
 
-Otherwise, use the following instructions:
+2. Open Electron Cash.
 
-1. Place the `shuffle` folder `cashshuffle-electron-cash-plugin-master/shuffle` into the Electron Cash plugins folder `Electron Cash-3.0/plugins`
-2. Open the `setup.py` file `Electron Cash-3.0/setup.py` and find the line that contains the text
+3. Go to "Tools" | "Installed Plugins"
 
-```'electroncash_plugins.virtualkeyboard'```
+4. Click the "Add Plugin" button.
 
-Replace this text with
+5. Select the plugin release you just downloaded.
 
-```'electroncash_plugins.virtualkeyboard', 'electroncash_plugins.shuffle',```
+6. Confirm that you understand the risks and dangers (do read the dialog, don't just blindly click through)
 
-3. `cd` into your Electron Cash directory, and re-install
+7. Click "Install".
 
-```sudo python3 setup.py install```
+8. Restart Electron Cash and you now should see the "Shuffle" tab in the main window.
 
-## Getting started
-
-1. Enable the plugin by going to `Tools -> Plugins`
-
-![Settings](/images/settings.png)
-
-  The shuffle tab will appear
-
-2. Close the settings dialog window. The shuffle tab will appear
-
-![Server settings](/images/shuffle_tab.png)
 
 ## Making a shuffle
 
