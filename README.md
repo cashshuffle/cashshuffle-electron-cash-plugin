@@ -24,7 +24,7 @@ For installation of plugin do the follows:
 
 8. Restart Electron Cash and you now should see the "Shuffle" tab in the main window.
 
-![Server settings](/images/shuffle_tab.png
+![Server settings](/images/shuffle_tab.png)
 
 ## Making a shuffle
 
@@ -72,7 +72,7 @@ If you want to add your server to the list follow the next structure:
 
 You can run shuffling bot from plugin with checkin `use bot` checkbox.
 
-![Bot settings](/images/Bot_tab.png
+![Bot settings](/images/Bot_tab.png)
 
 1. Choose server from servers list
 
