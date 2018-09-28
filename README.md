@@ -8,7 +8,7 @@ WARNING: THIS IS PRE-RELEASE SOFTWARE. This has been made available to provide f
 
 For installation of plugin do the follows:
 
-1. Download the latest release of the plugin (it should be a zip file) from [here](/releases).
+1. Download the latest release of the plugin (it should be a zip file) from [here](https://github.com/cashshuffle/cashshuffle-electron-cash-plugin/releases).
 
 2. Open Electron Cash.
 
