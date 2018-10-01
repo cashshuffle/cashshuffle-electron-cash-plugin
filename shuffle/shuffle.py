@@ -35,14 +35,11 @@ from .client import ProtocolThread
 
 class AmountSelect(QGroupBox):
 
-    def __init__(self, values, parent=None, decimal_point=None):
+    def __init__(self, values, parent=None, window=None):
         QGroupBox.__init__(self)
-        if decimal_point:
-            self.decimal_point = decimal_point
-        else:
-            self.decimal_point = lambda: 8
+        self.window = window
         self.values = values
-        buttons = [QRadioButton(self.add_units(value)) for value in values]
+        buttons = [QRadioButton(self.window.format_amount_and_units(value)) for value in values]
         buttons[0].setChecked(True)
         buttons_layout = QVBoxLayout()
         self.button_group = QButtonGroup()
@@ -53,13 +50,7 @@ class AmountSelect(QGroupBox):
 
     def update(self):
         for i, button in enumerate(self.button_group.buttons()):
-            button.setText(self.add_units(self.values[i]))
-
-    def add_units(self, value):
-        p = self.decimal_point()
-        if p not in [2, 5, 8]:
-            p = 8
-        return str(value*(10**(-p)))+ " " + {2:"bits", 5:"mBCH", 8: "BCH"}[p]
+            button.setText(self.window.format_amount_and_units(self.values[i]))
 
     def get_amount(self):
         return self.values[self.button_group.checkedId()]

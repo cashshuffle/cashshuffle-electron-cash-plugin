@@ -105,7 +105,7 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_outputs = OutputAdressWidget()
         self.coinshuffle_outputs_label = QLabel(_('Shuffle output address'))
         self.coinshuffle_external_output = ExternalOutput(testnet=self.window.config.get("testnet", False))
-        self.coinshuffle_amount_radio = AmountSelect(self.coinshuffle_amounts, decimal_point = self.window.get_decimal_point)
+        self.coinshuffle_amount_radio = AmountSelect(self.coinshuffle_amounts, window = self.window)
         self.coinshuffle_fee = QLabel(_(self.window.format_amount_and_units(self.coinshuffle_fee_constant)))
         self.coinshuffle_amount_label = QLabel(_('Amount'))
         self.coinshuffle_text_output = ConsoleOutput()
