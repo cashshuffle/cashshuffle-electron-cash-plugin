@@ -97,7 +97,7 @@ class InputAddressesWidget(QTreeWidget):
             utxo_hash = utxo['prevout_hash'] + str(utxo['prevout_n'])
             utxo_item = SortableTreeWidgetItem([address_text, amount, utxo_hash])
             if utxo_hash in checked_utxos:
-                utxo_item.setCheckState(0, Qt.checked)
+                utxo_item.setCheckState(0, Qt.Checked)
             else:
                 utxo_item.setCheckState(0, Qt.Unchecked)
             self.addChild(utxo_item)
@@ -117,11 +117,11 @@ class InputAddressesWidget(QTreeWidget):
         utxos_amount = [ utxo["value"] for utxo in utxos ]
         return sum(utxos_amount)
 
-    def update(self, wallet):
+    def update(self, wallet, force_update = False):
         old_hashes = [item["prevout_hash"] + str(item['prevout_n']) for item in self.inputsArray]
         new_hashes = [utxo["prevout_hash"] + str(utxo['prevout_n']) for utxo in wallet.get_utxos()]
         checked_hashes = [utxo["prevout_hash"] + str(utxo['prevout_n']) for utxo in self.get_checked_utxos()]
-        if set(new_hashes) != set(old_hashes):
+        if set(new_hashes) != set(old_hashes) or force_update:
             self.setItems(wallet, checked_utxos = checked_hashes)
 
 
@@ -139,11 +139,11 @@ class OutputAdressWidget(QComboBox):
     def setItems(self, wallet):
         self.outputsArray = wallet.get_unused_addresses()
         for address in self.outputsArray:
-            self.addItem(address.to_string(Address.FMT_LEGACY))
+            self.addItem(address.to_ui_string())
 
     def get_output_address(self, fmt=Address.FMT_LEGACY):
         if len(self.outputsArray) > 0:
-            return self.outputsArray[self.currentIndex()].to_string(fmt)
+            return self.outputsArray[self.currentIndex()].to_ui_string()
         else:
             return None
 
@@ -155,7 +155,7 @@ class OutputAdressWidget(QComboBox):
             self.clear_addresses()
             self.setItems(wallet)
             for i, output in enumerate(self.outputsArray):
-                if current_output == output.to_string(Address.FMT_LEGACY):
+                if current_output == output.to_ui_string():
                     self.setCurrentIndex(i)
                     return
             self.setCurrentIndex(0)
@@ -184,34 +184,44 @@ class ConsoleOutput(QTextEdit):
 
 class ChangeAdressWidget(QComboBox):
 
+    def __init__(self, parent=None):
+        QComboBox.__init__(self, parent)
+        self.changesArray = None
+
     def clear_addresses(self):
-        self.ChangesArray = []
+        self.changesArray = []
         self.clear()
 
-    def setItems(self, wallet):
-        self.ChangesArray = wallet.get_change_addresses()
-        self.addItem('Use input as change address')
-        for addr in self.ChangesArray:
-            self.addItem(addr.to_string(Address.FMT_LEGACY))
-
-    def update(self, wallet, fresh_only=False):
-        self.clear()
+    def setItems(self, wallet, fresh_only=False):
         changes = wallet.get_change_addresses()
         if not fresh_only:
-            self.ChangesArray = changes
+            self.changesArray = changes
         else:
-            self.ChangesArray = [change for change in changes
+            self.changesArray = [change for change in changes
                                  if len(wallet.get_address_history(change)) == 0]
         self.addItem('Use input as change address')
-        for addr in self.ChangesArray:
-            self.addItem(addr.to_string(Address.FMT_LEGACY))
+        for address in self.changesArray:
+            self.addItem(address.to_ui_string())
 
     def get_change_address(self, fmt=Address.FMT_LEGACY):
         i = self.currentIndex()
         if i > 0:
-            return self.ChangesArray[i-1].to_string(fmt)
+            return self.changesArray[i-1].to_ui_string()
         else:
             return None
+
+    def update(self, wallet, fresh_only=False):
+        if self.changesArray == None:
+            self.setItems(wallet, fresh_only=fresh_only)
+        current_change = self.get_change_address()
+        if not current_change == None:
+            self.clear_addresses()
+            self.setItems(wallet, fresh_only=fresh_only)
+            for i, change in enumerate(self.changesArray):
+                if current_change == change.to_ui_string():
+                    self.setCurrentIndex(i + 1)
+                    return
+            self.setCurrentIndex(0)
 
 
 class ShuffleList(MyTreeWidget):
@@ -306,9 +316,12 @@ class ServersList(QComboBox):
 
 class ExternalOutput(QLineEdit):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, testnet=False):
         QLineEdit.__init__(self, parent)
         self.setEnabled(False)
-        self.q_exp =  QRegExp("[13][a-km-zA-HJ-NP-Z1-9]{33}")
+        if testnet:
+            self.q_exp =  QRegExp("^([2mn][1-9A-HJ-NP-Za-km-z]{25,34})|^((bchtest:)?(q|p)[a-z0-9]{41})|^((BCHTEST:)?(Q|P)[A-Z0-9]{41})$")
+        else:
+            self.q_exp =  QRegExp("^([13][a-km-zA-HJ-NP-Z1-9]{25,34})|^((bitcoincash:)?(q|p)[a-z0-9]{41})|^((BITCOINCASH:)?(Q|P)[A-Z0-9]{41})$")
         self.validator = QRegExpValidator(self.q_exp ,self)
         self.setValidator(self.validator)

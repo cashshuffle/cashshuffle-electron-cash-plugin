@@ -104,7 +104,7 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_use_external_output = QCheckBox(_('Use external output address'))
         self.coinshuffle_outputs = OutputAdressWidget()
         self.coinshuffle_outputs_label = QLabel(_('Shuffle output address'))
-        self.coinshuffle_external_output = ExternalOutput()
+        self.coinshuffle_external_output = ExternalOutput(testnet=self.window.config.get("testnet", False))
         self.coinshuffle_amount_radio = AmountSelect(self.coinshuffle_amounts, decimal_point = self.window.get_decimal_point)
         self.coinshuffle_fee = QLabel(_(self.window.format_amount_and_units(self.coinshuffle_fee_constant)))
         self.coinshuffle_amount_label = QLabel(_('Amount'))
@@ -186,6 +186,8 @@ class ShuffleWidget(QWidget):
         self.shuffle_grid.addWidget(self.coinshuffle_bot_stop_button, 6, 1)
 
         self.shuffle_grid.addWidget(self.coinshuffle_inputs_list, 13, 1, 1, -1)
+
+        self.window.cashaddr_toggled_signal.connect(lambda: self.update_inputs(force_update=True))
 
         self.check_sufficient_ammount()
 
@@ -324,10 +326,11 @@ class ShuffleWidget(QWidget):
             self.coinshuffle_outputs.setEnabled(True)
         self.check_sufficient_ammount()
 
-    def update_inputs(self):
+    def update_inputs(self, force_update=False):
         if not self.coinshuffle_cancel_button.isEnabled():
-            self.coinshuffle_inputs_list.update(self.window.wallet)
+            self.coinshuffle_inputs_list.update(self.window.wallet, force_update=force_update)
             self.coinshuffle_outputs.update(self.window.wallet)
+            self.coinshuffle_changes.update(self.window.wallet, fresh_only=self.coinshuffle_fresh_changes.isChecked())
 
     def tick(self):
         self.waiting_timeout -= 1
@@ -341,7 +344,7 @@ class ShuffleWidget(QWidget):
         self.coinshufle_input_addrs = map(lambda x: x.get('address'),self.window.wallet.get_utxos())
         self.coinshuffle_outputs_addrs = map(lambda x: x.get('address'),self.window.wallet.get_utxos())
         self.coinshuffle_inputs_list.setItems(self.window.wallet)
-        self.coinshuffle_changes.setItems(self.window.wallet)
+        self.coinshuffle_changes.setItems(self.window.wallet, fresh_only=self.coinshuffle_fresh_changes.isChecked())
         self.coinshuffle_outputs.setItems(self.window.wallet)
 
 
@@ -518,16 +521,18 @@ class Plugin(BasePlugin):
 
     def __init__(self, parent, config, name):
         BasePlugin.__init__(self, parent, config, name)
-        self.window = None
-        self.tab = None
+        self.windows = []
 
     @hook
     def init_qt(self, gui):
         for window in gui.windows:
-            self.on_new_window(window)
+            tab_names = [window.tabs.tabText(i) for i in range(window.tabs.count())]
+            if "Shuffle" not in tab_names:
+                self.on_new_window(window)
 
     @hook
     def on_new_window(self, window):
+        window.cs_tab = None
         self.update(window)
 
     @hook
@@ -535,21 +540,23 @@ class Plugin(BasePlugin):
         self.update(window)
 
     def on_close(self):
-        tabIndex= self.window.tabs.indexOf(self.tab)
-        self.window.tabs.removeTab(tabIndex)
+        for window in self.windows:
+            tabIndex= window.tabs.indexOf(window.cs_tab)
+            window.tabs.removeTab(tabIndex)
 
     def update(self, window):
-        self.window = window
-        self.tab = ShuffleWidget(window)
-        self.tab.set_coinshuffle_addrs()
-        icon = QIcon(":icons/tab_coins.png")
+        window.cs_tab = ShuffleWidget(window)
+        window.cs_tab.set_coinshuffle_addrs()
+        # icon = QIcon(":icons/tab_coins.png")
+        icon = QIcon(":shuffle_tab_ico.png")
         description =  _("Shuffle")
         name = "shuffle"
-        self.tab.tab_icon = icon
-        self.tab.tab_description = description
-        self.tab.tab_pos = len(self.window.tabs)
-        self.tab.tab_name = name
-        self.window.tabs.addTab(self.tab, icon, description.replace("&", ""))
+        window.cs_tab.tab_icon = icon
+        window.cs_tab.tab_description = description
+        window.cs_tab.tab_pos = len(window.tabs)
+        window.cs_tab.tab_name = name
+        window.tabs.addTab(window.cs_tab, icon, description.replace("&", ""))
+        self.windows.append(window)
 
     def requires_settings(self):
         return False
