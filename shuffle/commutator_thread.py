@@ -35,12 +35,12 @@ class Commutator(threading.Thread):
         self.alive = threading.Event()
         self.alive.set()
         self.socket = None
-        # self.frame = '⏎'.encode('utf-8')
         self.magic = bytes.fromhex("42bcc32669467873")
         self.MAX_BLOCK_SIZE = buffsize
         self.timeout = timeout
         self.switch_timeout = switch_timeout
         self.ssl = ssl
+        self.response = b''
 
     def debug(self, obj):
         if self.logger:
@@ -84,7 +84,6 @@ class Commutator(threading.Thread):
             raise e
 
     def _send(self, msg):
-        # message = msg + self.frame
         message_length = len(msg).to_bytes(4, byteorder='big')
         message = self.magic + message_length + msg
         self.socket.sendall(message)
@@ -94,14 +93,17 @@ class Commutator(threading.Thread):
         self.debug('closed')
 
     def _recv(self):
-        response = self.socket.recv(self.MAX_BLOCK_SIZE)
-        magic = response[0:8]
-        if magic == self.magic:
-            msg_length = int.from_bytes(response[8:12], byteorder='big')
-            while len(response[12:]) < msg_length:
-                response += self.socket.recv(self.MAX_BLOCK_SIZE)
-            return response[12:]
-
-        # while response[-3:] != self.frame:
-        #     response += self.socket.recv(self.MAX_BLOCK_SIZE)
-        # return response[:-3]
+        while True:
+            if len(self.response)>12:
+                magic = self.response[0:8]
+                if magic == self.magic:
+                    msg_length = int.from_bytes(self.response[8:12], byteorder='big')
+                    if len(self.response[12:]) >= msg_length:
+                        result = self.response[12: 12 + msg_length]
+                        self.response = self.response[12 + msg_length:]
+                        return result
+                else:
+                    print("bad magic! appears")
+                    return None
+            else:
+                self.response += self.socket.recv(self.MAX_BLOCK_SIZE)

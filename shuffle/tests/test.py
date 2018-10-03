@@ -13,6 +13,7 @@ imp.load_module('electroncash_gui', *imp.find_module('gui'))
 imp.load_module('electroncash_plugins', *imp.find_module('plugins'))
 
 
+from electroncash.address import Address
 from electroncash.util import InvalidPassword
 from electroncash_plugins.shuffle.client import ProtocolThread
 from electroncash_plugins.shuffle.commutator_thread import (ChannelWithPrint, Channel)
@@ -37,13 +38,15 @@ class testNetwork(object):
 
     def synchronous_get(self, command):
         bc_command, addresses = command
-        if bc_command == 'blockchain.address.listunspent':
+        if bc_command == 'blockchain.scripthash.listunspent':
             if len(addresses) > 0:
-                return self.coins.get(addresses[0],[])
+                result = [self.coins[addr] for addr in self.coins if Address.from_string(addr).to_scripthash_hex()==addresses[0]][0]
+                return result
         else:
             return []
 
-    def broadcast(self, tx):
+
+    def broadcast_transaction(self, tx):
         return True, "done"
 
 class testThread(ProtocolThread):
