@@ -9,7 +9,10 @@ import ecdsa
 
 def address_from_public_key(public_key):
     "get address from public key"
-    return public_key_to_p2pkh(bytes.fromhex(public_key))
+    # return Address.from_string(public_key_to_p2pkh(bytes.fromhex(public_key))).to_ui_string()
+    return Address.from_pubkey(public_key).to_ui_string()
+
+
 
 
 class Coin(object):
@@ -20,6 +23,14 @@ class Coin(object):
 
     def __init__(self, network):
         self.network = network
+
+    # This method taken from lib/commands.py::Commands
+    def getaddressunspent(self, address):
+        """Returns the UTXO list of any address. Note: This
+        is a walletless server query, results are not checked by SPV.
+        """
+        sh = Address.from_string(address).to_scripthash_hex()
+        return self.network.synchronous_get(('blockchain.scripthash.listunspent', [sh]))
 
     def check_inputs_for_sufficient_funds(self, inputs, amount):
         """
@@ -40,7 +51,8 @@ class Coin(object):
         try:
             for public_key in inputs:
                 address = address_from_public_key(public_key)
-                unspent_list = self.network.synchronous_get(('blockchain.address.listunspent', [address]))
+                # unspent_list = self.network.synchronous_get(('blockchain.address.listunspent', [address]))
+                unspent_list = self.getaddressunspent(address)
                 utxos = {(utxo['tx_hash']+ ":" + str(utxo['tx_pos'])):utxo['value'] for utxo in unspent_list}
                 for utxo in inputs[public_key]:
                     if utxo in utxos:
@@ -56,7 +68,8 @@ class Coin(object):
         for public_key in inputs:
             address = address_from_public_key(public_key)
             coins[public_key] = []
-            unspent_list = self.network.synchronous_get(('blockchain.address.listunspent', [address]))
+            # unspent_list = self.network.synchronous_get(('blockchain.address.listunspent', [address]))
+            unspent_list = self.getaddressunspent(address)
             utxo_hashes = {(utxo["tx_hash"] + ":" + str(utxo["tx_pos"])):utxo for utxo in unspent_list}
             for utxo in inputs[public_key]:
                 if utxo in utxo_hashes:
@@ -151,7 +164,8 @@ class Coin(object):
 
     def broadcast_transaction(self, transaction):
         try:
-            return self.network.broadcast(transaction)
+            # return self.network.broadcast(transaction)
+            return self.network.broadcast_transaction(transaction)
         except:
             return None, None
 
