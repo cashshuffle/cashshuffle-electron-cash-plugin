@@ -1,6 +1,6 @@
 # Shuffle
 
-CashShuffle is a plugin for the [Electron Cash](https://electroncash.org/) BCH wallet. The version of [Electron Cash](https://electroncash.org/) should be not less then `3.1.2` .It allows users to make shuffled transactions using [CoinJoin](https://en.wikipedia.org/wiki/CoinJoin).
+CashShuffle is a plugin for the [Electron Cash](https://electroncash.org/) BCH wallet. The version of [Electron Cash](https://electroncash.org/) should be not less then `3.3.1` .It allows users to make shuffled transactions using [CoinJoin](https://en.wikipedia.org/wiki/CoinJoin).
 
 WARNING: THIS IS PRE-RELEASE SOFTWARE. This has been made available to provide feedback and review!
 
