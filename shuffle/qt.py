@@ -35,7 +35,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 import PyQt5.QtCore as QtCore
 import PyQt5.QtGui as QtGui
-from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QGridLayout, QLineEdit, QHBoxLayout, QWidget, QCheckBox)
+from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QGridLayout, QLineEdit, QHBoxLayout, QWidget, QCheckBox, QMenu)
 
 from electroncash.plugins import BasePlugin, hook
 from electroncash.i18n import _
@@ -347,6 +347,8 @@ class ShuffleWidget(QWidget):
         self.coinshuffle_changes.setItems(self.window.wallet, fresh_only=self.coinshuffle_fresh_changes.isChecked())
         self.coinshuffle_outputs.setItems(self.window.wallet)
 
+    def get_sufficient_amount(self):
+        return self.coinshuffle_amount_radio.get_amount() + self.coinshuffle_fee_constant
 
     def check_sufficient_ammount(self):
         coin_amount = self.coinshuffle_inputs_list.get_selected_amount()
@@ -508,6 +510,37 @@ class ShuffleWidget(QWidget):
             self.enable_coinshuffle_settings()
 
 
+def set_coins(win, selected):
+    checked_utxos = [utxo.replace(":","") for utxo in selected]
+    win.parent.cs_tab.coinshuffle_inputs_list.setItems(win.wallet, checked_utxos=checked_utxos)
+    win.parent.cs_tab.check_sufficient_ammount()
+    win.parent.tabs.setCurrentWidget(win.parent.cs_tab)
+
+
+def create_coins_menu(win, position):
+    selected = [x.data(0, Qt.UserRole) for x in win.selectedItems()]
+    if not selected:
+        return
+    menu = QMenu()
+    coins = filter(lambda x: win.get_name(x) in selected, win.utxos)
+
+    menu.addAction(_("Spend"), lambda: win.parent.spend_coins(coins))
+    if len(selected) == 1:
+        txid = selected[0].split(':')[0]
+        tx = win.wallet.transactions.get(txid)
+        menu.addAction(_("Details"), lambda: win.parent.show_transaction(tx))
+
+    if len(selected) > 0:
+        selected_coins = [utxo for utxo in win.wallet.get_utxos()
+                          if "{}:{}".format(utxo['prevout_hash'],utxo['prevout_n']) in selected]
+        selected_amount = sum(utxo['value'] for utxo in selected_coins)
+        is_enough_for_shuffling = selected_amount >= win.parent.cs_tab.get_sufficient_amount()
+        is_not_shuffle_now = not win.parent.cs_tab.coinshuffle_cancel_button.isEnabled()
+        if is_enough_for_shuffling and is_not_shuffle_now:
+            menu.addAction(_("Shuffle"), lambda : set_coins(win, selected))
+
+    menu.exec_(win.viewport().mapToGlobal(position))
+
 class Plugin(BasePlugin):
 
     def fullname(self):
@@ -532,8 +565,11 @@ class Plugin(BasePlugin):
 
     @hook
     def on_new_window(self, window):
+        self.utxo_list_menu_backup = window.utxo_list.create_menu
         window.cs_tab = None
         self.update(window)
+        window.utxo_list.customContextMenuRequested.disconnect()
+        window.utxo_list.customContextMenuRequested.connect(lambda x: create_coins_menu(window.utxo_list, x))
 
     @hook
     def on_close_window(self, window):
@@ -543,6 +579,9 @@ class Plugin(BasePlugin):
         for window in self.windows:
             tabIndex= window.tabs.indexOf(window.cs_tab)
             window.tabs.removeTab(tabIndex)
+            del window.cs_tab
+            window.utxo_list.customContextMenuRequested.disconnect()
+            window.utxo_list.customContextMenuRequested.connect(self.utxo_list_menu_backup)
 
     def update(self, window):
         window.cs_tab = ShuffleWidget(window)
