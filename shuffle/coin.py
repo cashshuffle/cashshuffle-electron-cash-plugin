@@ -10,7 +10,8 @@ import ecdsa
 def address_from_public_key(public_key):
     "get address from public key"
     # return Address.from_string(public_key_to_p2pkh(bytes.fromhex(public_key))).to_ui_string()
-    return Address.from_pubkey(public_key).to_ui_string()
+    # return Address.from_pubkey(public_key).to_ui_string()
+    return Address.from_pubkey(public_key)
 
 
 
@@ -29,7 +30,8 @@ class Coin(object):
         """Returns the UTXO list of any address. Note: This
         is a walletless server query, results are not checked by SPV.
         """
-        sh = Address.from_string(address).to_scripthash_hex()
+        # sh = Address.from_string(address).to_scripthash_hex()
+        sh = address.to_scripthash_hex()
         return self.network.synchronous_get(('blockchain.scripthash.listunspent', [sh]))
 
     def check_inputs_for_sufficient_funds(self, inputs, amount):
@@ -94,7 +96,8 @@ class Coin(object):
             for pubkey in coins[player]:
                 for utxo in coins[player][pubkey]:
                     utxo['type'] = 'p2pkh'
-                    utxo['address'] = Address.from_string(address_from_public_key(pubkey))
+                    # utxo['address'] = Address.from_string(address_from_public_key(pubkey))
+                    utxo['address'] = address_from_public_key(pubkey)
                     utxo['pubkeys'] = [pubkey]
                     utxo['x_pubkeys'] = [pubkey]
                     utxo['prevout_hash'] = utxo['tx_hash']
